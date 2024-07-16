@@ -25,8 +25,7 @@ def load_commands(bot):
         asyncio.run(bot.load_extension(f'modules.{cog}'))
 
 if __name__ == '__main__':
-    intents = discord.Intents.default()
-    intents.message_content = True
+    intents = discord.Intents.all()
 
     load_configs()
 
