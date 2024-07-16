@@ -3,7 +3,7 @@ from discord.ext import commands
 import json
 import settings
 import asyncio
-
+#testing PR
 def load_configs():
     tmp = {}
     with open('config.json', 'r') as f:
