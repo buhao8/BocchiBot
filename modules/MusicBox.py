@@ -42,22 +42,22 @@ class MusicBox(commands.Cog):
     @commands.command()
     async def vol(self, ctx, volume: float):
         voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if voice.is_playing():
-            voice.source.volume = 0.3 * min(volume, 1.0)
+        if voice and voice.is_playing():
+            voice.source.volume = 0.5 * min(volume, 1.0)
 
     @commands.command()
     async def resume(self, ctx):
         voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if not voice.is_playing():
+        if voice and not voice.is_playing():
             voice.resume()
             await ctx.send('Resuming')
-        else:
+        elif voice:
             await ctx.send('Nothing to resume?')
 
     @commands.command()
     async def pause(self, ctx):
         voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if voice.is_playing():
+        if voice and voice.is_playing():
             voice.pause()
             await ctx.send('Paused')
         else:
@@ -66,7 +66,7 @@ class MusicBox(commands.Cog):
     @commands.command()
     async def stop(self, ctx):
         voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if voice.is_playing():
+        if voice and voice.is_playing():
             voice.stop()
             await ctx.send('Stopping...')
 
