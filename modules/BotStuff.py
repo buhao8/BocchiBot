@@ -4,12 +4,17 @@ import json
 import re
 import validators
 import random
+import sqlite3
+from datetime import datetime
 
 class BotStuff(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         with open('words.json', 'r') as f:
             self.words = json.load(f)
+
+        self.con = sqlite3.connect("messages.db")
+        self.cur = self.con.cursor()
 
     @commands.Cog.listener()
     async def on_message(self, ctx):
@@ -45,6 +50,60 @@ class BotStuff(commands.Cog):
                         await ctx.channel.send(f"{member.display_name}'s `{word}` counter: {val}")
                     with open('words.json', 'w', encoding='utf-8') as f:
                         json.dump(self.words, f, ensure_ascii=False, indent=4)
+
+        insert_message(ctx, self.cur, self.con)
+
+
+    @commands.Cog.listener()
+    async def on_message_delete(self, ctx):
+
+        res = self.cur.execute(f"select * from messages where id={ctx.id}")
+        results = res.fetchall()
+
+        if len(results) > 1:
+            await ctx.send(f"More than one message with id {ctx.id}")
+            return
+        elif len(results) < 1:
+            await ctx.send(f"Message does not exist with id {ctx.id}.  Inserting...")
+            insert_message(ctx, cur, con)
+
+        del_time = datetime.now().timestamp()
+        self.cur.execute(f"update messages set deleted_time='{del_time}' where id={ctx.id}")
+        self.con.commit()
+
+
+    @commands.command()
+    async def deleted(self, ctx, username):
+        res = self.cur.execute((
+        #await ctx.reply((
+            f"select u.name, m.content "
+            f"from messages as m "
+            f"join users as u "
+                f"on m.author_id=u.id "
+                    f"where m.deleted_time!='0' and u.name='{username}' "
+                        f"order by m.deleted_time desc limit 5"))
+
+        result = res.fetchall()
+
+        ret = f"{username}'s last {len(result)} deleted messages:\n\n"
+        for msg in result:
+            ret += f"- {msg[1]}\n\n"
+
+        await ctx.send(ret)
+
+
+def insert_message(ctx, cur, con):
+    cur.execute("insert into messages values "
+                + f"({ctx.id},"
+                + f"{ctx.author.id},"
+                + f"{ctx.guild.id},"
+                + f"{ctx.channel.id},"
+                + f"'{ctx.created_at.timestamp()}',"
+                + f"'0',"
+                + f"'" + ctx.content.replace("'", "''") + "')")
+    con.commit()
+
+
 
 
 

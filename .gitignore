@@ -3,3 +3,4 @@ __pycache__/
 *.py[cod]
 tokens.json
 words.json
+messages.db
