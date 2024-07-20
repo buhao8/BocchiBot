@@ -16,6 +16,7 @@ class BotStuff(commands.Cog):
         self.con = sqlite3.connect("messages.db")
         self.cur = self.con.cursor()
 
+
     @commands.Cog.listener()
     async def on_message(self, ctx):
         author_id = str(ctx.author.id)
@@ -51,7 +52,7 @@ class BotStuff(commands.Cog):
                     with open('words.json', 'w', encoding='utf-8') as f:
                         json.dump(self.words, f, ensure_ascii=False, indent=4)
 
-        insert_message(ctx, self.cur, self.con)
+        await insert_message(ctx, self.cur, self.con)
 
 
     @commands.Cog.listener()
@@ -65,7 +66,7 @@ class BotStuff(commands.Cog):
             return
         elif len(results) < 1:
             await ctx.send(f"Message does not exist with id {ctx.id}.  Inserting...")
-            insert_message(ctx, cur, con)
+            await insert_message(ctx, cur, con)
 
         del_time = datetime.now().timestamp()
         self.cur.execute(f"update messages set deleted_time='{del_time}' where id={ctx.id}")
@@ -92,7 +93,8 @@ class BotStuff(commands.Cog):
         await ctx.send(ret)
 
 
-def insert_message(ctx, cur, con):
+async def insert_message(ctx, cur, con):
+    # Text
     cur.execute("insert into messages values "
                 + f"({ctx.id},"
                 + f"{ctx.author.id},"
@@ -103,8 +105,27 @@ def insert_message(ctx, cur, con):
                 + f"'" + ctx.content.replace("'", "''") + "')")
     con.commit()
 
+    for a in ctx.attachments:
+        got = False
+        data = None
+        for cached in [False, True]:
+            try:
+                data = await a.read(use_cached=cached)
+                got = True
+                break
+            except discord.HTTPException:
+                console.log("HTTPException while saving blob")
+            except discord.Forbidden:
+                console.log("Forbidden while saving blob")
+            except discord.NotFound:
+                console.log("NotFound whiel saving blob, was it deleted?")
 
+        if not got:
+            return
 
+        cur.execute("insert into blobs values (?, ?, ?, ?)",
+                    (a.id, ctx.id, a.filename, sqlite3.Binary(data)))
+        con.commit()
 
 
 async def setup(client):
