@@ -5,8 +5,20 @@ import settings
 import sqlite3
 import json
 import asyncio
+import traceback
+import io
 
 import flights
+
+class FlightsError(Exception):
+    def __init__(self, message, error):
+        super().__init__(message)
+        self.error = error
+
+    def __str__(self):
+        return (f"\n\nstatus_code: {self.error.status_code}\n"
+              + f"response: {self.error.text}")
+
 
 class FlightMaster(commands.Cog):
     def __init__(self, bot):
@@ -31,20 +43,24 @@ class FlightMaster(commands.Cog):
                            })
 
     async def _get_cal(self, origin: str, dest: str, cabin: str, year: int, month: int):
-        ret = []
-        resp = flights.get_cal(year, month, origin, dest, cabin)
-        if resp == {}:
-            return "err"
-        if len(resp['calendarMonths']) == 0:
-            return []
-        weeks = resp['calendarMonths'][0]['weeks']
-        for week in weeks:
-            days = week['days']
-            for day in days:
-                if day['solution']:
-                    ret.append(day)
+        try:
+            full_response = flights.get_cal(year, month, origin, dest, cabin)
+            resp = json.loads(full_response.text)
 
-        return ret
+            if len(resp['calendarMonths']) == 0:
+                return []
+
+            ret = []
+            weeks = resp['calendarMonths'][0]['weeks']
+            for week in weeks:
+                days = week['days']
+                for day in days:
+                    if day['solution']:
+                        ret.append(day)
+            return ret
+        except KeyError as e:
+            raise FlightsError(e, full_response)
+
 
 
     @commands.Cog.listener()
@@ -63,16 +79,27 @@ class FlightMaster(commands.Cog):
 
         dates = []
 
+        channel = self.bot.get_channel(int(self.flight_channel))
+
         for monthyear in data_to_query:
             (user_id, year, month, origin, dest, cabin) = monthyear
-            ret = await self._get_cal(origin, dest, cabin, year, month)
-            if type(ret) == str:
-                channel = self.bot.get_channel(int(self.flight_channel))
+            try:
+                ret = await self._get_cal(origin, dest, cabin, year, month)
+            except FlightsError as e:
                 mgmt_pings = ""
                 for member in self.flight_mgmt:
                     mgmt_pings += f"<@{member}> "
-                await channel.send(mgmt_pings + "Error polling calendar")
+                err_pings = f"{mgmt_pings} FLIGHTMASTER ERROR!!!\n"
+                err_msg = f"```{traceback.format_exc()}```"
+
+                if len(err_pings + err_msg) > 2000:
+                    buf = io.StringIO(err_msg)
+                    f = discord.File(buf, filename="err_msg.txt")
+                    await channel.send(err_pings, file=f)
+                else:
+                    await channel.send(err_pings + err_msg)
                 return
+
             #print("requesting", origin, dest, cabin, year, month)
 
             for solution in ret:
@@ -97,8 +124,11 @@ class FlightMaster(commands.Cog):
                 for date in dates:
                     if date['month'] == umonth and date['year'] == uyear and date['origin'] == uorigin and date['dest'] == udest and date['cabin'] == ucabin:
                         for address in [phone, email]:
+                            subject = "Flight Found!"
+                            body = f"Flight found for {origin}->{dest} on {month:0>2}-{date['dom']}-{year} in {cabin}"
                             if address != "":
-                                await self.email(address, f"Flight Found!", f"Flight found for {origin}->{dest} on {month:0>2}-{date['dom']}-{year} in {cabin}")
+                                await self.email(address, subject, body)
+                        await channel.send(f"<@{uid}> {subject} {body}")
 
 
     @commands.command()
