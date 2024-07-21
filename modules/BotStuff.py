@@ -6,6 +6,7 @@ import validators
 import random
 import sqlite3
 from datetime import datetime
+import modules.FlightMaster
 
 class BotStuff(commands.Cog):
     def __init__(self, bot):
@@ -15,6 +16,11 @@ class BotStuff(commands.Cog):
 
         self.con = sqlite3.connect("messages.db")
         self.cur = self.con.cursor()
+
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print("READY botstuff")
 
 
     @commands.Cog.listener()
@@ -118,7 +124,7 @@ async def insert_message(ctx, cur, con):
             except discord.Forbidden:
                 console.log("Forbidden while saving blob")
             except discord.NotFound:
-                console.log("NotFound whiel saving blob, was it deleted?")
+                console.log("NotFound while saving blob, was it deleted?")
 
         if not got:
             return
