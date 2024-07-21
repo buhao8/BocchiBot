@@ -118,17 +118,21 @@ class FlightMaster(commands.Cog):
             res = self.cur.execute(f"select user_id, year, month, origin, dest, cabin from flights where user_id={uid}")
             results = res.fetchall()
 
+            body = ""
+
             for result in results:
                 (uid, uyear, umonth, uorigin, udest, ucabin) = result
 
                 for date in dates:
                     if date['month'] == umonth and date['year'] == uyear and date['origin'] == uorigin and date['dest'] == udest and date['cabin'] == ucabin:
-                        for address in [phone, email]:
-                            subject = "Flight Found!"
-                            body = f"Flight found for {origin}->{dest} on {month:0>2}-{date['dom']}-{year} in {cabin}"
-                            if address != "":
-                                await self.email(address, subject, body)
-                        await channel.send(f"<@{uid}> {subject} {body}")
+                        body += f"Flight found for {uorigin}->{udest} on {umonth:0>2}-{date['dom']}-{uyear} in {ucabin}\n"
+
+            if body != "":
+                for address in [phone, email]:
+                    subject = "Flight Found!"
+                    if address != "":
+                        await self.email(address, subject, body)
+                await channel.send(f"<@{uid}> {subject}\n{body}")
 
 
     @commands.command()
