@@ -1,0 +1,387 @@
+{
+    "calendarDetails": {
+        "calendarSliceTabs": [
+            {
+                "origin": "TYO",
+                "destination": "ORD",
+                "date": "2024-12-01",
+                "perPassengerAwardPoints": 0
+            }
+        ],
+        "calendarPricingSummary": null,
+        "lowestMonthlyPrice": 60000
+    },
+    "calendarMonths": [
+        {
+            "month": "12",
+            "year": "2024",
+            "weeks": [
+                {
+                    "days": [
+                        {
+                            "dayOfMonth": "1",
+                            "date": "2024-12-01",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "2",
+                            "date": "2024-12-02",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "3",
+                            "date": "2024-12-03",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "4",
+                            "date": "2024-12-04",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "5",
+                            "date": "2024-12-05",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "6",
+                            "date": "2024-12-06",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "7",
+                            "date": "2024-12-07",
+                            "validDay": true,
+                            "solution": null
+                        }
+                    ]
+                },
+                {
+                    "days": [
+                        {
+                            "dayOfMonth": "8",
+                            "date": "2024-12-08",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "9",
+                            "date": "2024-12-09",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "10",
+                            "date": "2024-12-10",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "11",
+                            "date": "2024-12-11",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "12",
+                            "date": "2024-12-12",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "13",
+                            "date": "2024-12-13",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "14",
+                            "date": "2024-12-14",
+                            "validDay": true,
+                            "solution": {
+                                "perPassengerAwardPoints": 60000,
+                                "perPassengerSaleTotal": {
+                                    "amount": 43.0,
+                                    "currency": "USD"
+                                },
+                                "calendarSlices": [
+                                    {
+                                        "perPassengerAwardPoints": 60000,
+                                        "lowestPrice": true
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "days": [
+                        {
+                            "dayOfMonth": "15",
+                            "date": "2024-12-15",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "16",
+                            "date": "2024-12-16",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "17",
+                            "date": "2024-12-17",
+                            "validDay": true,
+                            "solution": {
+                                "perPassengerAwardPoints": 60000,
+                                "perPassengerSaleTotal": {
+                                    "amount": 43.0,
+                                    "currency": "USD"
+                                },
+                                "calendarSlices": [
+                                    {
+                                        "perPassengerAwardPoints": 60000,
+                                        "lowestPrice": true
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "dayOfMonth": "18",
+                            "date": "2024-12-18",
+                            "validDay": true,
+                            "solution": {
+                                "perPassengerAwardPoints": 60000,
+                                "perPassengerSaleTotal": {
+                                    "amount": 43.0,
+                                    "currency": "USD"
+                                },
+                                "calendarSlices": [
+                                    {
+                                        "perPassengerAwardPoints": 60000,
+                                        "lowestPrice": true
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "dayOfMonth": "19",
+                            "date": "2024-12-19",
+                            "validDay": true,
+                            "solution": {
+                                "perPassengerAwardPoints": 60000,
+                                "perPassengerSaleTotal": {
+                                    "amount": 43.0,
+                                    "currency": "USD"
+                                },
+                                "calendarSlices": [
+                                    {
+                                        "perPassengerAwardPoints": 60000,
+                                        "lowestPrice": true
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "dayOfMonth": "20",
+                            "date": "2024-12-20",
+                            "validDay": true,
+                            "solution": {
+                                "perPassengerAwardPoints": 60000,
+                                "perPassengerSaleTotal": {
+                                    "amount": 43.0,
+                                    "currency": "USD"
+                                },
+                                "calendarSlices": [
+                                    {
+                                        "perPassengerAwardPoints": 60000,
+                                        "lowestPrice": true
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "dayOfMonth": "21",
+                            "date": "2024-12-21",
+                            "validDay": true,
+                            "solution": {
+                                "perPassengerAwardPoints": 60000,
+                                "perPassengerSaleTotal": {
+                                    "amount": 43.0,
+                                    "currency": "USD"
+                                },
+                                "calendarSlices": [
+                                    {
+                                        "perPassengerAwardPoints": 60000,
+                                        "lowestPrice": true
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "days": [
+                        {
+                            "dayOfMonth": "22",
+                            "date": "2024-12-22",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "23",
+                            "date": "2024-12-23",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "24",
+                            "date": "2024-12-24",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "25",
+                            "date": "2024-12-25",
+                            "validDay": true,
+                            "solution": {
+                                "perPassengerAwardPoints": 60000,
+                                "perPassengerSaleTotal": {
+                                    "amount": 43.0,
+                                    "currency": "USD"
+                                },
+                                "calendarSlices": [
+                                    {
+                                        "perPassengerAwardPoints": 60000,
+                                        "lowestPrice": true
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "dayOfMonth": "26",
+                            "date": "2024-12-26",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "27",
+                            "date": "2024-12-27",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "28",
+                            "date": "2024-12-28",
+                            "validDay": true,
+                            "solution": null
+                        }
+                    ]
+                },
+                {
+                    "days": [
+                        {
+                            "dayOfMonth": "29",
+                            "date": "2024-12-29",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "30",
+                            "date": "2024-12-30",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": "31",
+                            "date": "2024-12-31",
+                            "validDay": true,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": null,
+                            "date": null,
+                            "validDay": false,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": null,
+                            "date": null,
+                            "validDay": false,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": null,
+                            "date": null,
+                            "validDay": false,
+                            "solution": null
+                        },
+                        {
+                            "dayOfMonth": null,
+                            "date": null,
+                            "validDay": false,
+                            "solution": null
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "daysOfWeek": [
+        "SUN",
+        "MON",
+        "TUE",
+        "WED",
+        "THU",
+        "FRI",
+        "SAT"
+    ],
+    "error": "",
+    "responseMetadata": {
+        "account": {
+            "nextGen": false,
+            "companionAllowed": false
+        },
+        "searchAirports": [],
+        "departureDate": "2024-12-01",
+        "direction": "DEPART",
+        "duration": 410,
+        "international": false,
+        "resultId": "HK8uikIcKUCylGMD2jUJ6r56g",
+        "searchType": "Award",
+        "sessionId": "a9t0gOYFjKnOV9mXzT7tnxvWh",
+        "solutionSet": "04FBW3xkpC4OMCVfQsijG7N",
+        "notifications": [],
+        "showFlagship": false,
+        "corporateFare": false,
+        "sliceCount": 0,
+        "pricedSliceIndex": 0,
+        "tripType": "ONE_WAY",
+        "pricedSlice": 1,
+        "businessPlusOffered": false,
+        "selectedProductChanged": false,
+        "longHaulMarket": false,
+        "roundTrip": false,
+        "mixedCabin": false,
+        "mixedFare": false,
+        "multiCity": false
+    },
+    "slices": [],
+    "utag": {
+        "channel": "Booking",
+        "event_name": "award",
+        "page_name": "Choose Flights",
+        "site_country": "US",
+        "site_currency": "USD",
+        "site_indicator": "AAcom",
+        "site_language": "EN",
+        "tealium_environment": "qa",
+        "tealium_profile": "main"
+    }
+}
