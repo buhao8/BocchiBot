@@ -8,7 +8,7 @@ import asyncio
 import traceback
 import io
 
-import flights
+from modules.flightmaster import flights as flights
 
 class FlightsError(Exception):
     def __init__(self, message, error):
@@ -19,6 +19,24 @@ class FlightsError(Exception):
         return (f"\n\nstatus_code: {self.error.status_code}\n"
               + f"response: {self.error.text}")
 
+class FlightUser():
+    def __init__(self, uid, name, email, phone):
+        self.uid = uid
+        self.name = name
+        self.email = email
+        self.phone = phone
+
+class FlightData():
+    def __init__(self, uid, year, month, day, origin, dest, cabin, stops=0, airline="AA"):
+        self.uid = uid
+        self.year = year
+        self.month = month
+        self.day = day
+        self.origin = origin
+        self.dest = dest
+        self.cabin = cabin
+        self.stops = stops
+        self.airline = airline
 
 class FlightMaster(commands.Cog):
     def __init__(self, bot):
@@ -33,6 +51,7 @@ class FlightMaster(commands.Cog):
     def cog_unload(self):
         self.check_alerts.cancel()
 
+
     async def email(self, receiver, subject, text):
         requests.post('https://api.mailgun.net/v3/buhao.jp/messages',
                       auth=('api', settings.get()["tokens"]["mailgun"]),
@@ -42,9 +61,9 @@ class FlightMaster(commands.Cog):
                             'text': text,
                            })
 
-    async def _get_cal(self, origin: str, dest: str, cabin: str, year: int, month: int):
+    async def _get_cal(self, flight: FlightData):
         try:
-            full_response = flights.get_cal(year, month, origin, dest, cabin)
+            full_response = flights.get_cal(flight.year, flight.month, flight.origin, flight.dest, flight.cabin)
             resp = json.loads(full_response.text)
 
             if len(resp['calendarMonths']) == 0:
@@ -71,10 +90,10 @@ class FlightMaster(commands.Cog):
 
     @tasks.loop(seconds=60.0)
     async def check_alerts(self):
-        res = self.cur.execute("select user_id, year, month, origin, dest, cabin from flights group by month, year, origin, dest, cabin")
+        res = self.cur.execute("select user_id, year, month, day, origin, dest, cabin from flights group by month, year, origin, dest, cabin")
         data_to_query = res.fetchall()
 
-        res = self.cur.execute("select * from users")
+        res = self.cur.execute("select id, name, email, phone from users")
         users = res.fetchall()
 
         dates = []
@@ -82,9 +101,9 @@ class FlightMaster(commands.Cog):
         channel = self.bot.get_channel(int(self.flight_channel))
 
         for monthyear in data_to_query:
-            (user_id, year, month, origin, dest, cabin) = monthyear
+            flight = FlightData(*monthyear)
             try:
-                ret = await self._get_cal(origin, dest, cabin, year, month)
+                ret = await self._get_cal(flight)
             except FlightsError as e:
                 mgmt_pings = ""
                 for member in self.flight_mgmt:
@@ -97,42 +116,41 @@ class FlightMaster(commands.Cog):
                     f = discord.File(buf, filename="err_msg.txt")
                     await channel.send(err_pings, file=f)
                 else:
+                    print(err_pings + err_msg)
                     await channel.send(err_pings + err_msg)
                 return
-
-            #print("requesting", origin, dest, cabin, year, month)
 
             for solution in ret:
                 dates.append({
                     'dom': solution['dayOfMonth'],
-                    'month': month,
-                    'year': year,
-                    'origin': origin,
-                    'dest': dest,
-                    'cabin': cabin
+                    'month': flight.month,
+                    'year': flight.year,
+                    'origin': flight.origin,
+                    'dest': flight.dest,
+                    'cabin': flight.cabin
                 })
             await asyncio.sleep(2)
 
         for user in users:
-            (uid, name, email, phone) = user
-            res = self.cur.execute(f"select user_id, year, month, origin, dest, cabin from flights where user_id={uid}")
+            u = FlightUser(*user)
+            res = self.cur.execute(f"select user_id, year, month, day, origin, dest, cabin from flights where user_id={u.uid}")
             results = res.fetchall()
 
             body = ""
 
             for result in results:
-                (uid, uyear, umonth, uorigin, udest, ucabin) = result
+                r = FlightData(*result)
 
                 for date in dates:
-                    if date['month'] == umonth and date['year'] == uyear and date['origin'] == uorigin and date['dest'] == udest and date['cabin'] == ucabin:
-                        body += f"Flight found for {uorigin}->{udest} on {umonth:0>2}-{date['dom']}-{uyear} in {ucabin}\n"
+                    if date['month'] == r.month and date['year'] == r.year and date['origin'] == r.origin and date['dest'] == r.dest and date['cabin'] == r.cabin:
+                        body += f"Flight found for {r.origin}->{r.dest} on {r.month:0>2}-{date['dom']}-{r.year} in {r.cabin}\n"
 
             if body != "":
-                for address in [phone, email]:
+                for address in [u.phone, u.email]:
                     subject = "Flight Found!"
                     if address != "":
                         await self.email(address, subject, body)
-                await channel.send(f"<@{uid}> {subject}\n{body}")
+                await channel.send(f"<@{u.uid}> {subject}\n{body}")
 
 
     @commands.command()
@@ -194,9 +212,16 @@ class FlightMaster(commands.Cog):
 
     @commands.command()
     async def get_cal(self, ctx, origin: str, dest: str, cabin: str, year: int, month: int):
-        ret = self._get_cal(self, origin, dest, cabin, year, month)
+        ret = await self._get_cal(FlightData(-1, year, month, 32, origin, dest, cabin))
         if ret:
-            await ctx.reply(json.dumps(ret, indent=4))
+            msg = json.dumps(ret, indent=4)
+            if len(msg) > 2000:
+                buf = io.StringIO(msg)
+                f = discord.File(buf, filename="err_msg.txt")
+                await ctx.reply(file=f)
+            else:
+                await ctx.reply(msg)
+            return
         else:
             await ctx.reply("no flight, get rekt")
 
