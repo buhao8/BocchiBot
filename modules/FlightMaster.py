@@ -16,8 +16,10 @@ class FlightsError(Exception):
         self.error = error
 
     def __str__(self):
-        return (f"\n\nstatus_code: {self.error.status_code}\n"
-              + f"response: {self.error.text}")
+        if hasattr(self.error, 'status_code'):
+            return (f"\n\nstatus_code: {self.error.status_code}"
+                  + f"\n\nresponse: {self.error.text}")
+        return f"\n\nresponse: {self.error}"
 
 class FlightUser():
     def __init__(self, uid, name, email, phone):
@@ -63,7 +65,7 @@ class FlightMaster(commands.Cog):
 
     async def _get_cal(self, flight: FlightData):
         try:
-            full_response = flights.get_cal(flight.year, flight.month, flight.origin, flight.dest, flight.cabin)
+            full_response = await flights.get_cal(flight.year, flight.month, flight.origin, flight.dest, flight.cabin)
             resp = json.loads(full_response.text)
 
             if len(resp['calendarMonths']) == 0:
@@ -77,7 +79,7 @@ class FlightMaster(commands.Cog):
                     if day['solution']:
                         ret.append(day)
             return ret
-        except KeyError as e:
+        except Exception as e:
             raise FlightsError(e, full_response)
 
 
@@ -88,7 +90,7 @@ class FlightMaster(commands.Cog):
         print("READY flightmaster")
 
 
-    @tasks.loop(seconds=60.0)
+    @tasks.loop(seconds=120.0)
     async def check_alerts(self):
         res = self.cur.execute("select user_id, year, month, day, origin, dest, cabin from flights group by month, year, origin, dest, cabin")
         data_to_query = res.fetchall()
@@ -129,7 +131,7 @@ class FlightMaster(commands.Cog):
                     'dest': flight.dest,
                     'cabin': flight.cabin
                 })
-            await asyncio.sleep(2)
+            await asyncio.sleep(3)
 
         for user in users:
             u = FlightUser(*user)

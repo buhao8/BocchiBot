@@ -1,4 +1,4 @@
-import requests
+import httpx
 import json
 from pprint import pprint
 import calendar
@@ -23,7 +23,7 @@ def get_month(year, month):
                 #print(day["date"])
     return ret
 
-def get_cal(year, month, origin, dest, cabin):
+async def get_cal(year, month, origin, dest, cabin):
 
     cabins = {
         'ANY': '',
@@ -85,9 +85,9 @@ def get_cal(year, month, origin, dest, cabin):
         'version': ''
     }
 
-    #r_json['slices'][0].update({'origin': origin, 'destination': dest})
-
-    response = requests.post('https://www.aa.com/booking/api/search/calendar', headers=r_headers, json=r_json)
+    async with httpx.AsyncClient() as client:
+        response = await client.post('https://www.aa.com/booking/api/search/calendar', headers=r_headers, json=r_json, timeout=None)
+    #print("elapsed time:", response.elapsed.total_seconds())
     if response.status_code != 200:
         print("=============== ERROR =============== ")
         print(response.text)
