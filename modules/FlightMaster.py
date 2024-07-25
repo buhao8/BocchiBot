@@ -93,7 +93,7 @@ class FlightMaster(commands.Cog):
 
     @tasks.loop(seconds=120.0)
     async def check_alerts(self):
-        res = self.cur.execute("select user_id, year, month, day, origin, dest, cabin from flights group by month, year, origin, dest, cabin")
+        res = self.cur.execute("select user_id, year, month, day, origin, dest, cabin from flights group by month, year, origin, dest, cabin order by origin, dest, year, month")
         data_to_query = res.fetchall()
 
         res = self.cur.execute("select id, name, email, phone from users")
@@ -217,7 +217,7 @@ class FlightMaster(commands.Cog):
 
         ret = "All alerts:\n"
         for user in users:
-            res = self.cur.execute(f"select year, month, origin, dest, cabin from flights where user_id={user[0]} order by year, month")
+            res = self.cur.execute(f"select year, month, origin, dest, cabin from flights where user_id={user[0]} order by origin, dest, year, month")
             results = res.fetchall()
 
             if len(results) > 0:
@@ -231,7 +231,7 @@ class FlightMaster(commands.Cog):
 
     @commands.command()
     async def current_alerts(self, ctx):
-        res = self.cur.execute(f"select year, month, origin, dest, cabin from flights where user_id={ctx.author.id}")
+        res = self.cur.execute(f"select year, month, origin, dest, cabin from flights where user_id={ctx.author.id} order by origin, dest, year, month")
         results = res.fetchall()
 
         ret = "Current alerts:\n"
