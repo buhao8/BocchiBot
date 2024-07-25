@@ -22,28 +22,29 @@ class FlightsError(Exception):
         return f"\n\nresponse: {self.error}"
 
 class FlightUser():
-    def __init__(self, uid, name, email, phone):
-        self.uid = uid
-        self.name = name
-        self.email = email
-        self.phone = phone
+    def __init__(self, data):
+        self.id = data["id"]
+        self.name = data["name"]
+        self.email = data["email"]
+        self.phone = data["phone"]
 
 class FlightData():
-    def __init__(self, uid, year, month, day, origin, dest, cabin, stops=0, airline="AA"):
-        self.uid = uid
-        self.year = year
-        self.month = month
-        self.day = day
-        self.origin = origin
-        self.dest = dest
-        self.cabin = cabin
-        self.stops = stops
-        self.airline = airline
+    def __init__(self, data):
+        self.uid = data["user_id"]
+        self.year = data["year"]
+        self.month = data["month"]
+        self.day = data["day"]
+        self.origin = data["origin"]
+        self.dest = data["dest"]
+        self.cabin = data["cabin"]
+        self.stops = data["stops"] if "stops" in data else 0
+        self.airline = data["airline"] if "airline" in data else "AA"
 
 class FlightMaster(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.con = sqlite3.connect("flights.db")
+        self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
         with open('settings.json') as f:
             data = json.load(f)
@@ -103,7 +104,7 @@ class FlightMaster(commands.Cog):
         channel = self.bot.get_channel(int(self.flight_channel))
 
         for monthyear in data_to_query:
-            flight = FlightData(*monthyear)
+            flight = FlightData(monthyear)
             try:
                 ret = await self._get_cal(flight)
             except FlightsError as e:
@@ -134,14 +135,14 @@ class FlightMaster(commands.Cog):
             await asyncio.sleep(3)
 
         for user in users:
-            u = FlightUser(*user)
-            res = self.cur.execute(f"select user_id, year, month, day, origin, dest, cabin from flights where user_id={u.uid}")
+            u = FlightUser(user)
+            res = self.cur.execute(f"select user_id, year, month, day, origin, dest, cabin from flights where user_id={u.id}")
             results = res.fetchall()
 
             body = ""
 
             for result in results:
-                r = FlightData(*result)
+                r = FlightData(result)
 
                 for date in dates:
                     if date['month'] == r.month and date['year'] == r.year and date['origin'] == r.origin and date['dest'] == r.dest and date['cabin'] == r.cabin:
@@ -153,7 +154,7 @@ class FlightMaster(commands.Cog):
                     if address != "":
                         #await self.email(address, subject, body)
                         pass
-                await channel.send(f"<@{u.uid}> {subject}\n{body}")
+                await channel.send(f"<@{u.id}> {subject}\n{body}")
 
 
     @commands.command()
@@ -164,6 +165,10 @@ class FlightMaster(commands.Cog):
         if not result:
             await ctx.reply("You are not in the list of authorized users.  This incident will be reported.")
             return
+
+        origin = origin.upper()
+        dest = dest.upper()
+        cabin = cabin.upper()
 
         # check if alert for these params exists for user
         q = f"""
@@ -188,6 +193,10 @@ class FlightMaster(commands.Cog):
 
     @commands.command()
     async def delete_alert(self, ctx, origin: str, dest: str, cabin: str, year: int, month: int):
+        origin = origin.upper()
+        dest = dest.upper()
+        cabin = cabin.upper()
+
         q = f"""
             delete from flights
                 where user_id={ctx.author.id}
@@ -249,5 +258,4 @@ class FlightMaster(commands.Cog):
 
 
 async def setup(client):
-    reef = FlightMaster(client)
-    await client.add_cog(reef)
+    await client.add_cog(FlightMaster(client))
