@@ -145,13 +145,14 @@ class FlightMaster(commands.Cog):
 
                 for date in dates:
                     if date['month'] == r.month and date['year'] == r.year and date['origin'] == r.origin and date['dest'] == r.dest and date['cabin'] == r.cabin:
-                        body += f"Flight found for {r.origin}->{r.dest} on {r.month:0>2}-{date['dom']}-{r.year} in {r.cabin}\n"
+                        body += f"Flight found for {r.origin}->{r.dest} on {r.month:0>2}-{date['dom']:0>2}-{r.year} in {r.cabin}\n"
 
             if body != "":
                 for address in [u.phone, u.email]:
                     subject = "Flight Found!"
                     if address != "":
-                        await self.email(address, subject, body)
+                        #await self.email(address, subject, body)
+                        pass
                 await channel.send(f"<@{u.uid}> {subject}\n{body}")
 
 
@@ -199,6 +200,25 @@ class FlightMaster(commands.Cog):
         self.cur.execute(q)
         self.con.commit()
         await ctx.reply("Sent delete request to database")
+
+    @commands.command()
+    async def all_alerts(self, ctx):
+        res = self.cur.execute(f"select id, name from users")
+        users = res.fetchall()
+
+        ret = "All alerts:\n"
+        for user in users:
+            res = self.cur.execute(f"select year, month, origin, dest, cabin from flights where user_id={user[0]} order by year, month")
+            results = res.fetchall()
+
+            if len(results) > 0:
+                ret += f"{user[1]}\n"
+
+            for result in results:
+                (year, month, origin, dest, cabin) = result
+                ret += f"\t\\- {origin}->{dest} on {year}-{month:0>2} in {cabin}\n"
+
+        await ctx.reply(ret)
 
     @commands.command()
     async def current_alerts(self, ctx):
