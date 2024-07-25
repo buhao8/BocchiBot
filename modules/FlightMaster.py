@@ -231,7 +231,7 @@ class FlightMaster(commands.Cog):
 
     @commands.command()
     async def current_alerts(self, ctx):
-        res = self.cur.execute(f"select year, month, origin, dest, cabin from flights where user_id={ctx.author.id}")
+        res = self.cur.execute(f"select year, month, origin, dest, cabin from flights where user_id={ctx.author.id} order by origin, dest, year ASC, month ASC")
         results = res.fetchall()
 
         ret = "Current alerts:\n"
