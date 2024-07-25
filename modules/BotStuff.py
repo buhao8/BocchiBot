@@ -64,6 +64,11 @@ class BotStuff(commands.Cog):
     @commands.Cog.listener()
     async def on_message_delete(self, ctx):
 
+        if ctx.author.id == self.bot.user.id:
+            async for entry in ctx.guild.audit_logs(limit=1):
+                deleter = entry.user
+            await ctx.channel.send(f"{deleter.mention} fuck you")
+
         res = self.cur.execute(f"select * from messages where id={ctx.id}")
         results = res.fetchall()
 
@@ -82,7 +87,6 @@ class BotStuff(commands.Cog):
     @commands.command()
     async def deleted(self, ctx, username):
         res = self.cur.execute((
-        #await ctx.reply((
             f"select u.name, m.content "
             f"from messages as m "
             f"join users as u "
@@ -92,11 +96,12 @@ class BotStuff(commands.Cog):
 
         result = res.fetchall()
 
-        ret = f"{username}'s last {len(result)} deleted messages:\n\n"
+        title = f"{username}'s last {len(result)} deleted messages:\n\n"
+        ret = ""
         for msg in result:
             ret += f"- {msg[1]}\n\n"
 
-        await ctx.send(ret)
+        await ctx.send(embed = discord.Embed(title=title, description=ret))
 
 
 async def insert_message(ctx, cur, con):
