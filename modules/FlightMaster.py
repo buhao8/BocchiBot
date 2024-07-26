@@ -1,5 +1,7 @@
 import discord
 from discord.ext import commands, tasks
+import datetime
+from dateutil.parser import parse
 import requests
 import settings
 import sqlite3
@@ -33,12 +35,12 @@ class FlightData():
         self.uid = data["user_id"]
         self.year = data["year"]
         self.month = data["month"]
-        self.day = data["day"]
+        self.day = data['day'] if 'day' in data.keys() else 0
         self.origin = data["origin"]
         self.dest = data["dest"]
         self.cabin = data["cabin"]
-        self.stops = data["stops"] if "stops" in data else 0
-        self.airline = data["airline"] if "airline" in data else "AA"
+        self.stops = data["stops"] if "stops" in data.keys() else 0
+        self.airline = data["airline"] if "airline" in data.keys() else "AA"
 
 class FlightMaster(commands.Cog):
     def __init__(self, bot):
@@ -93,7 +95,7 @@ class FlightMaster(commands.Cog):
 
     @tasks.loop(seconds=120.0)
     async def check_alerts(self):
-        res = self.cur.execute("select user_id, year, month, day, origin, dest, cabin from flights group by month, year, origin, dest, cabin order by origin, dest, year, month")
+        res = self.cur.execute("select user_id, year, month, origin, dest, cabin from flights group by month, year, origin, dest, cabin")
         data_to_query = res.fetchall()
 
         res = self.cur.execute("select id, name, email, phone from users")
@@ -125,7 +127,7 @@ class FlightMaster(commands.Cog):
 
             for solution in ret:
                 dates.append({
-                    'dom': solution['dayOfMonth'],
+                    'day': int(solution['dayOfMonth']),
                     'month': flight.month,
                     'year': flight.year,
                     'origin': flight.origin,
@@ -136,7 +138,7 @@ class FlightMaster(commands.Cog):
 
         for user in users:
             u = FlightUser(user)
-            res = self.cur.execute(f"select user_id, year, month, day, origin, dest, cabin from flights where user_id={u.id}")
+            res = self.cur.execute(f"select user_id, year, month, day, origin, dest, cabin from flights where user_id={u.id} order by origin, dest, year, month")
             results = res.fetchall()
 
             body = ""
@@ -145,8 +147,8 @@ class FlightMaster(commands.Cog):
                 r = FlightData(result)
 
                 for date in dates:
-                    if date['month'] == r.month and date['year'] == r.year and date['origin'] == r.origin and date['dest'] == r.dest and date['cabin'] == r.cabin:
-                        body += f"Flight found for {r.origin}->{r.dest} on {r.month:0>2}-{date['dom']:0>2}-{r.year} in {r.cabin}\n"
+                    if date['day'] == r.day and date['month'] == r.month and date['year'] == r.year and date['origin'] == r.origin and date['dest'] == r.dest and date['cabin'] == r.cabin:
+                        body += f"Flight found for {r.origin}->{r.dest} on {r.month:0>2}-{date['day']:0>2}-{r.year} in {r.cabin}\n"
 
             if body != "":
                 for address in [u.phone, u.email]:
@@ -158,7 +160,7 @@ class FlightMaster(commands.Cog):
 
 
     @commands.command()
-    async def create_alert(self, ctx, origin: str, dest: str, cabin: str, year: int, month: int):
+    async def create_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str):
         # check if user exists
         res = self.cur.execute(f"select * from users where id={ctx.author.id}")
         result = res.fetchone()
@@ -170,45 +172,86 @@ class FlightMaster(commands.Cog):
         dest = dest.upper()
         cabin = cabin.upper()
 
-        # check if alert for these params exists for user
-        q = f"""
-            select * from flights
-                where user_id={ctx.author.id}
-                and year={year}
-                and month={month}
-                and cabin='{cabin}'
-                and origin='{origin}'
-                and dest='{dest}'
-            """
+        #TODO fix exception handling for improper date strings
+        try:
+            start = parse(startdate)
+            end = parse(enddate)
+        except:
+            print("invalid date formats")
 
-        res = self.cur.execute(q)
-        result = res.fetchone()
-        if result:
-            await ctx.reply(f"You already have an alert for {origin}->{dest} on {month:0>2}-{year} in {cabin}")
-        else:
-            self.cur.execute("insert into flights values (?,?,?,?,?,?,?,?,?)",
-                             (ctx.author.id, year, month, 0, origin, dest, cabin, 0, "AA"))
-            self.con.commit()
-            await ctx.reply(f"Created alert for {origin}->{dest} on {month:0>2}-{year} in {cabin}")
+        if start < datetime.datetime.today():
+            await ctx.reply("Start date is in the past REEEEEE")
+            return
+        if end < start:
+            await ctx.reply("invalid range!!")
+            return
+        if end > datetime.datetime.today() + datetime.timedelta(days=365):
+            await ctx.reply("your range is too large!!")
+            return
+
+        date = start
+        while date <= end:
+            q = f"""
+                select * from flights
+                    where user_id={ctx.author.id}
+                    and year={date.year}
+                    and month={date.month}
+                    and day = {date.day}
+                    and cabin='{cabin}'
+                    and origin='{origin}'
+                    and dest='{dest}'
+                """
+            res = self.cur.execute(q)
+            result = res.fetchone()
+            if result:
+                await ctx.reply(f"You already have an alert for {origin}->{dest} on {date} in {cabin}")
+            else:
+                self.cur.execute("insert into flights values (?,?,?,?,?,?,?,?,?)",
+                                (ctx.author.id, date.year, date.month, date.day, origin, dest, cabin, 0, "AA"))
+                self.con.commit()
+            date = date + datetime.timedelta(days = 1)
+        await ctx.reply(f"Created alert for {origin}->{dest} from {start.date()} to {end.date()} in {cabin}")
+
 
     @commands.command()
-    async def delete_alert(self, ctx, origin: str, dest: str, cabin: str, year: int, month: int):
+    async def delete_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str):
         origin = origin.upper()
         dest = dest.upper()
         cabin = cabin.upper()
 
-        q = f"""
+        #TODO add error handling for improper date input
+        try:
+            start = parse(startdate)
+            end = parse(enddate)
+        except:
+            print("invalid date formats")
+        gap = end - start
+        if gap.days > 365:
+            await ctx.reply("Your range is TOO LARGE")
+            return
+        if end < start:
+            await ctx.reply("invalid range!!")
+            return
+        if end > datetime.datetime.today() + datetime.timedelta(days=365):
+            await ctx.reply("your range is too large!!")
+            return
+
+        date = start
+        while date <= end:
+            q = f"""
             delete from flights
                 where user_id={ctx.author.id}
-                and year={year}
-                and month={month}
+                and year={date.year}
+                and month={date.month}
+                and day = {date.day}
                 and cabin='{cabin}'
                 and origin='{origin}'
                 and dest='{dest}'
             """
-        self.cur.execute(q)
-        self.con.commit()
-        await ctx.reply("Sent delete request to database")
+            self.cur.execute(q)
+            self.con.commit()
+            date = date + datetime.timedelta(days = 1)
+        await ctx.reply("Sent delete requests to database")
 
     @commands.command()
     async def all_alerts(self, ctx):
@@ -217,29 +260,39 @@ class FlightMaster(commands.Cog):
 
         ret = "All alerts:\n"
         for user in users:
-            res = self.cur.execute(f"select year, month, origin, dest, cabin from flights where user_id={user[0]} order by origin, dest, year, month")
+            res = self.cur.execute(f"select year, month, day, origin, dest, cabin from flights where user_id={user[0]} order by origin, dest, year, month")
             results = res.fetchall()
 
             if len(results) > 0:
                 ret += f"{user[1]}\n"
 
             for result in results:
-                (year, month, origin, dest, cabin) = result
-                ret += f"\t\\- {origin}->{dest} on {year}-{month:0>2} in {cabin}\n"
+                (year, month, day, origin, dest, cabin) = result
+                ret += f"\t\\- {origin}->{dest} on {month:0>2}-{day:0>2}-{year} in {cabin}\n"
 
-        await ctx.reply(ret)
+        if len(ret) > 2000:
+            buf = io.StringIO(ret)
+            f = discord.File(buf, filename="all_alerts.txt")
+            await ctx.reply(file = f)
+        else:
+            await ctx.reply(ret)
 
     @commands.command()
     async def current_alerts(self, ctx):
-        res = self.cur.execute(f"select year, month, origin, dest, cabin from flights where user_id={ctx.author.id} order by origin, dest, year, month")
+        res = self.cur.execute(f"select year, month, day, origin, dest, cabin from flights where user_id={ctx.author.id} order by origin, dest, year, month")
         results = res.fetchall()
 
         ret = "Current alerts:\n"
         for result in results:
-            (year, month, origin, dest, cabin) = result
-            ret += f"\t\\- {origin}->{dest} on {month:0>2}-{year} in {cabin}\n"
+            (year, month, day, origin, dest, cabin) = result
+            ret += f"\t\\- {origin}->{dest} on {month:0>2}-{day:0>2}-{year} in {cabin}\n"
+        if len(ret) > 2000:
+            buf = io.StringIO(ret)
+            f = discord.File(buf, filename="current_alerts.txt")
+            await ctx.reply(file = f)
+        else:
+            await ctx.reply(ret)
 
-        await ctx.reply(ret)
 
     @commands.command()
     async def get_cal(self, ctx, origin: str, dest: str, cabin: str, year: int, month: int):
