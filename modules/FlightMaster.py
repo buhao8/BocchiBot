@@ -10,37 +10,9 @@ import asyncio
 import traceback
 import io
 
-from modules.flightmaster import flights as flights
-
-class FlightsError(Exception):
-    def __init__(self, message, error):
-        super().__init__(message)
-        self.error = error
-
-    def __str__(self):
-        if hasattr(self.error, 'status_code'):
-            return (f"\n\nstatus_code: {self.error.status_code}"
-                  + f"\n\nresponse: {self.error.text}")
-        return f"\n\nresponse: {self.error}"
-
-class FlightUser():
-    def __init__(self, data):
-        self.id = data["id"]
-        self.name = data["name"]
-        self.email = data["email"]
-        self.phone = data["phone"]
-
-class FlightData():
-    def __init__(self, data):
-        self.uid = data["user_id"]
-        self.year = data["year"]
-        self.month = data["month"]
-        self.day = data['day'] if 'day' in data.keys() else 0
-        self.origin = data["origin"]
-        self.dest = data["dest"]
-        self.cabin = data["cabin"]
-        self.stops = data["stops"] if "stops" in data.keys() else 0
-        self.airline = data["airline"] if "airline" in data.keys() else "AA"
+from modules.flightmaster.vaflights import get_results as get_va_results, get_query as get_va_query
+from modules.flightmaster.aaflights import get_results as get_aa_results, get_query as get_aa_query
+from modules.flightmaster.flightdata import FlightData, FlightUser, FlightsError
 
 class FlightMaster(commands.Cog):
     def __init__(self, bot):
@@ -54,7 +26,8 @@ class FlightMaster(commands.Cog):
             self.flight_channel = data["flight_channel"]
 
     def cog_unload(self):
-        self.check_alerts.cancel()
+        self.check_alerts("AA").cancel()
+        self.check_alerts("VA").cancel()
 
 
     async def email(self, receiver, subject, text):
@@ -66,36 +39,16 @@ class FlightMaster(commands.Cog):
                             'text': text,
                            })
 
-    async def _get_cal(self, flight: FlightData):
-        try:
-            full_response = await flights.get_cal(flight.year, flight.month, flight.origin, flight.dest, flight.cabin)
-            resp = json.loads(full_response.text)
-
-            if len(resp['calendarMonths']) == 0:
-                return []
-
-            ret = []
-            weeks = resp['calendarMonths'][0]['weeks']
-            for week in weeks:
-                days = week['days']
-                for day in days:
-                    if day['solution']:
-                        ret.append(day)
-            return ret
-        except Exception as e:
-            raise FlightsError(e, full_response)
-
-
-
     @commands.Cog.listener()
     async def on_ready(self):
-        self.check_alerts.start()
+        self.aa_loop.start()
+        self.va_loop.start()
         print("READY flightmaster")
 
+    async def check_alerts(self, airline: str, get_results, get_query):
 
-    @tasks.loop(seconds=120.0)
-    async def check_alerts(self):
-        res = self.cur.execute("select user_id, year, month, origin, dest, cabin from flights group by month, year, origin, dest, cabin")
+        res = self.cur.execute(get_query())
+
         data_to_query = res.fetchall()
 
         res = self.cur.execute("select id, name, email, phone from users")
@@ -105,10 +58,10 @@ class FlightMaster(commands.Cog):
 
         channel = self.bot.get_channel(int(self.flight_channel))
 
-        for monthyear in data_to_query:
-            flight = FlightData(monthyear)
+        for query in data_to_query:
+            flight = FlightData(query)
             try:
-                ret = await self._get_cal(flight)
+                ret = await get_results(flight)
             except FlightsError as e:
                 mgmt_pings = ""
                 for member in self.flight_mgmt:
@@ -127,7 +80,7 @@ class FlightMaster(commands.Cog):
 
             for solution in ret:
                 dates.append({
-                    'day': int(solution['dayOfMonth']),
+                    'day': int(solution.day),
                     'month': flight.month,
                     'year': flight.year,
                     'origin': flight.origin,
@@ -138,7 +91,8 @@ class FlightMaster(commands.Cog):
 
         for user in users:
             u = FlightUser(user)
-            res = self.cur.execute(f"select user_id, year, month, day, origin, dest, cabin from flights where user_id={u.id} order by origin, dest, year, month")
+            res = self.cur.execute(f"select user_id, year, month, day, origin, dest, cabin from flights where user_id={u.id} and airline='{airline}' order by origin, dest, year, month")
+
             results = res.fetchall()
 
             body = ""
@@ -148,7 +102,7 @@ class FlightMaster(commands.Cog):
 
                 for date in dates:
                     if date['day'] == r.day and date['month'] == r.month and date['year'] == r.year and date['origin'] == r.origin and date['dest'] == r.dest and date['cabin'] == r.cabin:
-                        body += f"Flight found for {r.origin}->{r.dest} on {r.month:0>2}-{date['day']:0>2}-{r.year} in {r.cabin}\n"
+                        body += f"Flight found for {r.origin}->{r.dest} on {r.month:0>2}-{date['day']:0>2}-{r.year} in {r.cabin} for {airline}\n"
 
             if body != "":
                 for address in [u.phone, u.email]:
@@ -158,19 +112,36 @@ class FlightMaster(commands.Cog):
                         pass
                 await channel.send(f"<@{u.id}> {subject}\n{body}")
 
+    @tasks.loop(seconds=60)
+    async def aa_loop(self):
+        await self.check_alerts('AA', get_aa_results, get_aa_query)
+
+    @tasks.loop(seconds=60)
+    async def va_loop(self):
+        await self.check_alerts('VA', get_va_results, get_va_query)
 
     @commands.command()
-    async def create_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str):
+    async def create_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str, airline: str):
+        airlines = ['AA', 'VA']
         # check if user exists
         res = self.cur.execute(f"select * from users where id={ctx.author.id}")
+
         result = res.fetchone()
-        if not result:
-            await ctx.reply("You are not in the list of authorized users.  This incident will be reported.")
-            return
 
         origin = origin.upper()
         dest = dest.upper()
         cabin = cabin.upper()
+        airline = airline.upper()
+
+        if not result:
+            await ctx.reply("You are not in the list of authorized users.  This incident will be reported.")
+            return
+        if airline not in airlines:
+            await ctx.reply("THIS AIRLINE IS NOT CURRENTLY SUPPORTED")
+            return
+        if airline == 'VA' and cabin != 'F':
+            await ctx.reply("THIS CABIN IS NOT CURRENTLY SUPPORTED FOR VA")
+            return
 
         #TODO fix exception handling for improper date strings
         try:
@@ -200,24 +171,25 @@ class FlightMaster(commands.Cog):
                     and cabin='{cabin}'
                     and origin='{origin}'
                     and dest='{dest}'
+                    and airline = '{airline}'
                 """
             res = self.cur.execute(q)
             result = res.fetchone()
             if result:
-                await ctx.reply(f"You already have an alert for {origin}->{dest} on {date} in {cabin}")
+                await ctx.reply(f"You already have an alert for {origin}->{dest} on {date} in {cabin} for {airline}")
             else:
                 self.cur.execute("insert into flights values (?,?,?,?,?,?,?,?,?)",
-                                (ctx.author.id, date.year, date.month, date.day, origin, dest, cabin, 0, "AA"))
+                                (ctx.author.id, date.year, date.month, date.day, origin, dest, cabin, 0, airline))
                 self.con.commit()
             date = date + datetime.timedelta(days = 1)
-        await ctx.reply(f"Created alert for {origin}->{dest} from {start.date()} to {end.date()} in {cabin}")
-
+        await ctx.reply(f"Created alert for {origin}->{dest} from {start.date()} to {end.date()} in {cabin} for {airline}")
 
     @commands.command()
-    async def delete_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str):
+    async def delete_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str, airline: str):
         origin = origin.upper()
         dest = dest.upper()
         cabin = cabin.upper()
+        airline = airline.upper()
 
         #TODO add error handling for improper date input
         try:
@@ -247,6 +219,7 @@ class FlightMaster(commands.Cog):
                 and cabin='{cabin}'
                 and origin='{origin}'
                 and dest='{dest}'
+                and airline = '{airline}'
             """
             self.cur.execute(q)
             self.con.commit()
@@ -260,15 +233,15 @@ class FlightMaster(commands.Cog):
 
         ret = "All alerts:\n"
         for user in users:
-            res = self.cur.execute(f"select year, month, day, origin, dest, cabin from flights where user_id={user[0]} order by origin, dest, year, month")
+            res = self.cur.execute(f"select year, month, day, origin, dest, cabin, airline from flights where user_id={user[0]} order by year, month, day, origin, dest, airline, cabin")
             results = res.fetchall()
 
             if len(results) > 0:
                 ret += f"{user[1]}\n"
 
             for result in results:
-                (year, month, day, origin, dest, cabin) = result
-                ret += f"\t\\- {origin}->{dest} on {month:0>2}-{day:0>2}-{year} in {cabin}\n"
+                flight = FlightData(result)
+                ret += f"\t\\- {flight.origin}->{flight.dest} on {flight.month:0>2}-{flight.day:0>2}-{flight.year} in {flight.cabin} for {flight.airline}\n"
 
         if len(ret) > 2000:
             buf = io.StringIO(ret)
@@ -279,13 +252,13 @@ class FlightMaster(commands.Cog):
 
     @commands.command()
     async def current_alerts(self, ctx):
-        res = self.cur.execute(f"select year, month, day, origin, dest, cabin from flights where user_id={ctx.author.id} order by origin, dest, year, month")
+        res = self.cur.execute(f"select year, month, day, origin, dest, cabin, airline from flights where user_id={ctx.author.id} order by year, month, day, origin, dest, airline, cabin")
         results = res.fetchall()
 
         ret = "Current alerts:\n"
         for result in results:
-            (year, month, day, origin, dest, cabin) = result
-            ret += f"\t\\- {origin}->{dest} on {month:0>2}-{day:0>2}-{year} in {cabin}\n"
+            flight = FlightData(result)
+            ret += f"\t\\- {flight.origin}->{flight.dest} on {flight.month:0>2}-{flight.day:0>2}-{flight.year} in {flight.cabin} for {flight.airline}\n"
         if len(ret) > 2000:
             buf = io.StringIO(ret)
             f = discord.File(buf, filename="current_alerts.txt")
@@ -293,12 +266,28 @@ class FlightMaster(commands.Cog):
         else:
             await ctx.reply(ret)
 
-
     @commands.command()
-    async def get_cal(self, ctx, origin: str, dest: str, cabin: str, year: int, month: int):
-        ret = await self._get_cal(FlightData(-1, year, month, 32, origin, dest, cabin))
+    async def get_aa_month(self, ctx, origin: str, dest: str, cabin: str, monthyear: str):
+        try:
+            d = parse(monthyear)
+        except:
+            print("invalid date format")
+        origin = origin.upper()
+        dest = dest.upper()
+        cabin = cabin.upper()
+        data = {
+            "year" : d.year,
+            "month": d.month,
+            "origin": origin,
+            "dest": dest,
+            "cabin": cabin
+        }
+        ret = await get_aa_results(FlightData(data))
         if ret:
-            msg = json.dumps(ret, indent=4)
+            days = []
+            for solution in ret:
+                days.append(int(solution.day))
+                msg = f"Flights found for {origin}->{dest} on {d.month}-{d.year} on days {days} in {cabin} for AA"
             if len(msg) > 2000:
                 buf = io.StringIO(msg)
                 f = discord.File(buf, filename="err_msg.txt")
@@ -307,8 +296,37 @@ class FlightMaster(commands.Cog):
                 await ctx.reply(msg)
             return
         else:
-            await ctx.reply("no flight, get rekt")
+            await ctx.reply(f"get rekt, no flights found for {origin}->{dest} on {d.month}-{d.year} in {cabin}")
 
+    @commands.command()
+    async def get_va_day(self, ctx, origin:str, dest:str, cabin:str, date: str):
+        try:
+            d = parse(date)
+        except:
+            print("invalid date format")
+        origin = origin.upper()
+        dest = dest.upper()
+        cabin = cabin.upper()
+        data = {
+            "year" : d.year,
+            "month": d.month,
+            "day" : d.day,
+            "origin": origin,
+            "dest": dest,
+            "cabin": cabin
+        }
+        ret = await get_va_results(FlightData(data))
+        if ret:
+            msg = f"Flight found for {origin}->{dest} on {d.date()} in {cabin} for VA\n"
+            if len(msg) > 2000:
+                buf = io.StringIO(msg)
+                f = discord.File(buf, filename="err_msg.txt")
+                await ctx.reply(file=f)
+            else:
+                await ctx.reply(msg)
+            return
+        else:
+            await ctx.reply(f"get rekt, no flights found for {origin}->{dest} on {d.date()} in {cabin}")
 
 async def setup(client):
     await client.add_cog(FlightMaster(client))
