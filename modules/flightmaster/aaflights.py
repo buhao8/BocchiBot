@@ -1,27 +1,36 @@
 import httpx
 import json
 from pprint import pprint
+from copy import deepcopy
 import calendar
+from modules.flightmaster.flightdata import FlightData, FlightsError
 
-# data = json.loads(request.text)
-with open('response.json', 'r') as f:
-    data = json.load(f)
-
-# pprint(data)
-# with open('response.json', 'w') as f:
-#     json.dump(data, f, indent=4)
+def get_query():
+        return "select user_id, year, month, origin, dest, cabin from flights where airline = 'AA' group by year, month, origin, dest, cabin"
 
 
-def get_month(year, month):
-    ret = []
-    weeks = data["calendarMonths"][0]["weeks"]
-    for w in weeks:
-        week = w["days"]
-        for day in week:
-            if day["solution"] != None:
-                ret.append(day["date"])
-                #print(day["date"])
-    return ret
+async def get_results(flight: FlightData):
+    print(f'looking for {flight.month}/{flight.day}/{flight.year} from {flight.origin} to {flight.dest} in cabin {flight.cabin} using AMERICAN AIRLINES')
+    try:
+        full_response = await get_cal(flight.year, flight.month, flight.origin, flight.dest, flight.cabin)
+        resp = json.loads(full_response.text)
+
+        if len(resp['calendarMonths']) == 0:
+            return []
+
+        ret = []
+        weeks = resp['calendarMonths'][0]['weeks']
+        for week in weeks:
+            days = week['days']
+            for day in days:
+                if day['solution']:
+                    solution = deepcopy(flight)
+                    solution.day = day['dayOfMonth']
+                    ret.append(solution)
+        return ret
+    except Exception as e:
+        raise FlightsError(e, full_response)
+
 
 async def get_cal(year, month, origin, dest, cabin):
 
