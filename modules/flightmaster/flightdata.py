@@ -15,7 +15,17 @@ class FlightData():
         self.dest = data["dest"]
         self.cabin = data["cabin"]
         self.stops = data["stops"] if "stops" in data.keys() else 0
-        self.airline = data["airline"] if "airline" in data.keys() else "AA"
+        self.airline = data["airline"] if "airline" in data.keys() else "No Airline"
+
+    def __str__(self):
+        return f"""uid={self.uid}
+year={self.year}
+month={self.month}
+day={self.day}
+origin={self.origin}
+dest={self.dest}
+cabin={self.cabin}
+airline={self.airline}"""
 
 class FlightsError(Exception):
     def __init__(self, message, error):
