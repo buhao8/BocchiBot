@@ -60,9 +60,14 @@ class FlightMaster(commands.Cog):
         await self.bot.wait_until_ready()
 
     async def check_alerts(self, airline):
+        # Each thread needs its own connection
+        db_con = sqlite3.connect("flights.db")
+        db_con.row_factory = sqlite3.Row
+        db_cur = db_con.cursor()
+
         channel = self.bot.get_channel(int(self.flight_channel))
 
-        res = self.cur.execute(airline.get_query())
+        res = db_cur.execute(airline.get_query())
         data_to_query = res.fetchall()
 
         dates = []
@@ -87,12 +92,12 @@ class FlightMaster(commands.Cog):
                 })
             await asyncio.sleep(3)
 
-        res = self.cur.execute("select id, name, email, phone from users")
+        res = db_cur.execute("select id, name, email, phone from users")
         users = res.fetchall()
 
         for user in users:
             u = FlightUser(user)
-            res = self.cur.execute(f"""
+            res = db_cur.execute(f"""
                 select user_id, year, month, day, origin, dest, cabin
                     from flights
                         where user_id={u.id} and airline='{airline}'
@@ -121,6 +126,8 @@ class FlightMaster(commands.Cog):
                         #await self.email(address, subject, body)
                         pass
                 await channel.send(f"<@{u.id}> {subject}\n{body}")
+
+        db_con.close()
 
     @commands.command()
     async def create_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str, airline: str):
