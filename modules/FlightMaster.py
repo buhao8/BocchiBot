@@ -27,8 +27,10 @@ class FlightMaster(commands.Cog):
         self.flight_errors = config["flight_errors"]
 
         self.airlines = [aaflights.AA(), vaflights.VA()]
+        self.check_loop.start()
 
     def cog_unload(self):
+        print("UNLOAD flightmaster")
         self.check_loop.cancel()
 
     async def email(self, receiver, subject, text):
@@ -42,15 +44,20 @@ class FlightMaster(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.check_loop.start()
+        # Doesn't get called on cog/extension reload
         print("READY flightmaster")
 
-    @tasks.loop(seconds=60)
+    @tasks.loop(seconds=15)
     async def check_loop(self):
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=now))
         tasks = [self.check_alerts(airline) for airline in self.airlines]
         await asyncio.gather(*tasks)
+
+    @check_loop.before_loop
+    async def before_check_loop(self):
+        print("flightmaster loop waiting for ready...")
+        await self.bot.wait_until_ready()
 
     async def check_alerts(self, airline):
         channel = self.bot.get_channel(int(self.flight_channel))
@@ -385,4 +392,5 @@ class FlightMaster(commands.Cog):
             await channel.send(err_pings + content)
 
 async def setup(client):
+    print("Setup flightmaster")
     await client.add_cog(FlightMaster(client))
