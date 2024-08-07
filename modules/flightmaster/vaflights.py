@@ -86,8 +86,12 @@ class VA(airline.Airline):
             'query': 'query bookingAirSearch($airSearchInput: CustomAirSearchInput) {\n  bookingAirSearch(airSearchInput: $airSearchInput) {\n    originalResponse\n    __typename\n  }\n}\n',
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post('https://book.virginaustralia.com/api/graphql', headers=r_headers, json=r_json, timeout=None)
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post('https://book.virginaustralia.com/api/graphql', headers=r_headers, json=r_json, timeout=None)
+        except:
+            return "httpx.AsyncClient().post exception"
+
         #print("elapsed time:", response.elapsed.total_seconds())
         if response.status_code != 200:
             print("=============== ERROR =============== ")

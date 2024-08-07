@@ -104,8 +104,11 @@ class AA(airline.Airline):
             'version': ''
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post('https://www.aa.com/booking/api/search/calendar', headers=r_headers, json=r_json, timeout=None)
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post('https://www.aa.com/booking/api/search/calendar', headers=r_headers, json=r_json, timeout=None)
+        except:
+            return "httpx.AsyncClient().post exception"
         #print("elapsed time:", response.elapsed.total_seconds())
         if response.status_code != 200:
             print("=============== ERROR =============== ")

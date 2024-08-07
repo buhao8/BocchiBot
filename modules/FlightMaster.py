@@ -8,6 +8,7 @@ import io
 import json
 import requests
 import sqlite3
+import time
 import traceback
 
 from modules.flightmaster import airline, aaflights, vaflights
@@ -46,6 +47,8 @@ class FlightMaster(commands.Cog):
 
     @tasks.loop(seconds=60)
     async def check_loop(self):
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=now))
         tasks = [self.check_alerts(airline) for airline in self.airlines]
         await asyncio.gather(*tasks)
 
