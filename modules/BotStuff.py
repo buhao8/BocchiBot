@@ -7,6 +7,7 @@ import random
 import sqlite3
 from datetime import datetime
 import modules.FlightMaster
+import settings
 
 class BotStuff(commands.Cog):
     def __init__(self, bot):
@@ -104,39 +105,88 @@ class BotStuff(commands.Cog):
         await ctx.send(embed = discord.Embed(title=title, description=ret))
 
 
+    @commands.command(hidden=True)
+    async def fbackup(self, ctx):
+        if not is_owner(ctx.author.id):
+            await ctx.reply("You are not in the sudoers file.  This incident will be reported.")
+            return
+
+        guild = ctx.guild
+        await ctx.send(str(guild))
+
+        for channel in guild.text_channels:
+            perms = channel.permissions_for(channel.guild.me)
+            if perms.read_messages == False:
+                continue
+
+            res = self.cur.execute(f"select * from channels where id={channel.id}")
+            if not res.fetchone():
+                self.cur.execute(f"insert into channels values({channel.id}, '{channel.name}')")
+                self.con.commit()
+
+            num_messages = 0
+            print(channel)
+            async for message in channel.history(limit=None, oldest_first=True):
+                num_messages += 1
+                await insert_message(message, self.cur, self.con)
+
+            await ctx.send(f"{num_messages}-{channel.id}")
+
+        await ctx.reply(f"Complete.")
+
+
+    @commands.command()
+    async def reload(self, ctx, module):
+        await self.bot.reload_extension(f"modules.{module}")
+        await ctx.reply(f"{module} successfully reloaded")
+
+def is_owner(author):
+    return author == int(settings.get()["owner"])
+
 async def insert_message(ctx, cur, con):
-    # Text
-    cur.execute("insert into messages values "
-                + f"({ctx.id},"
-                + f"{ctx.author.id},"
-                + f"{ctx.guild.id},"
-                + f"{ctx.channel.id},"
-                + f"'{ctx.created_at.timestamp()}',"
-                + f"'0',"
-                + f"'" + ctx.content.replace("'", "''") + "')")
-    con.commit()
+    res = cur.execute(f"select * from messages where id={ctx.id}")
+    if not res.fetchone():
+        cur.execute("insert into messages values "
+                    + f"({ctx.id},"
+                    + f"{ctx.author.id},"
+                    + f"{ctx.guild.id},"
+                    + f"{ctx.channel.id},"
+                    + f"'{ctx.created_at.timestamp()}',"
+                    + f"'0',"
+                    + f"'" + ctx.content.replace("'", "''") + "')")
+        con.commit()
 
     for a in ctx.attachments:
         got = False
         data = None
-        for cached in [False, True]:
-            try:
-                data = await a.read(use_cached=cached)
-                got = True
-                break
-            except discord.HTTPException:
-                console.log("HTTPException while saving blob")
-            except discord.Forbidden:
-                console.log("Forbidden while saving blob")
-            except discord.NotFound:
-                console.log("NotFound while saving blob, was it deleted?")
 
-        if not got:
-            return
+        res = cur.execute(f"select * from blobs where id={a.id}")
+        if not res.fetchone():
+            tries = 3
+            while tries > 0:
+                for cached in [False, True]:
+                    try:
+                        data = await a.read(use_cached=cached)
+                        got = True
+                        break
+                    except discord.HTTPException:
+                        await ctx.send("HTTPException while saving blob {a.id}")
+                    except discord.Forbidden:
+                        await ctx.send("Forbidden while saving blob {a.id}")
+                    except discord.NotFound:
+                        await ctx.send("NotFound while saving blob, was it deleted? {a.id}")
 
-        cur.execute("insert into blobs values (?, ?, ?, ?)",
-                    (a.id, ctx.id, a.filename, sqlite3.Binary(data)))
-        con.commit()
+                if got:
+                    break
+                tries -= 1
+            if tries == 0:
+                await ctx.send("Failed on blob {a.id}")
+                continue
+
+
+            cur.execute("insert into blobs values (?, ?, ?, ?)",
+                        (a.id, ctx.id, a.filename, sqlite3.Binary(data)))
+            con.commit()
 
 
 async def setup(client):
