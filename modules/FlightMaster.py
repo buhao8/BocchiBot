@@ -129,8 +129,12 @@ class FlightMaster(commands.Cog):
 
         db_con.close()
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def create_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str, airline: str):
+        await self.create_alerts(ctx, origin, dest, cabin, startdate, enddate, airline)
+
+    @commands.command()
+    async def create_alerts(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str, airline: str):
         # check if user exists
 
         origin = origin.upper()
@@ -192,8 +196,12 @@ class FlightMaster(commands.Cog):
             date = date + datetime.timedelta(days = 1)
         await ctx.reply(f"Created alert for {origin}->{dest} from {start.date()} to {end.date()} in {cabin} for {airline}")
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def delete_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str, airline: str):
+        await self.delete_alerts(ctx, origin, dest, cabin, startdate, enddate, airline)
+
+    @commands.command()
+    async def delete_alerts(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str, airline: str):
         origin = origin.upper()
         dest = dest.upper()
         cabin = cabin.upper()
