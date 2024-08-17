@@ -19,24 +19,26 @@ class VA(airline.Airline):
 
     async def get_results(self, flight: FlightData):
         print(f'looking for {flight.month}/{flight.day}/{flight.year} from {flight.origin} to {flight.dest} in cabin {flight.cabin} using VIRGIN AUSTRALIA')
-        try:
-            full_response = await self.get_flights(flight.year, flight.month, flight.day, flight.origin, flight.dest, flight.cabin)
-            resp = json.loads(full_response.text)
-            data = resp['data']['bookingAirSearch']['originalResponse']['unbundledOffers'][0]
-            datastr = str(data)
-            #only supports F flights
-            ret = []
-            if data and ('134000' in datastr or '95000' in datastr or '114000' in datastr):
-                # second try
-                full_response = await get_flights(flight.year, flight.month, flight.day, flight.origin, flight.dest, flight.cabin)
+
+        ret = []
+        required_verifies = 2
+        verifies = required_verifies
+        while verifies != 0:
+            try:
+                full_response = await self.get_flights(flight.year, flight.month, flight.day, flight.origin, flight.dest, flight.cabin)
                 resp = json.loads(full_response.text)
                 data = resp['data']['bookingAirSearch']['originalResponse']['unbundledOffers'][0]
                 datastr = str(data)
+                #only supports F flights
+
                 if data and ('134000' in datastr or '95000' in datastr or '114000' in datastr):
                     ret.append(flight)
-            return ret
-        except Exception as e:
-            raise FlightsError(e, full_response)
+
+                verifies -= 1
+            except Exception as e:
+                raise FlightsError(e, full_response)
+
+        return ret if len(ret) == required_verifies else []
 
     async def get_flights(self, year, month, day, origin, dest, cabin):
 
