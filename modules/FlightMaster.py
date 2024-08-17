@@ -27,7 +27,10 @@ class FlightMaster(commands.Cog):
         self.flight_errors = config["flight_errors"]
 
         self.airlines = [aaflights.AA(), vaflights.VA()]
-        self.check_loop.start()
+        print(f"flightmaster ctor (is_ready = {self.bot.is_ready()})")
+        if self.bot.is_ready() and not self.check_loop.is_running():
+            self.check_loop.cancel()
+            self.check_loop.start()
 
     def cog_unload(self):
         print("UNLOAD flightmaster")
@@ -46,6 +49,11 @@ class FlightMaster(commands.Cog):
     async def on_ready(self):
         # Doesn't get called on cog/extension reload
         print("READY flightmaster")
+        print("on_ready = " + str(self.bot.is_ready()))
+        print(f"flightmaster on_ready (is_ready = {self.bot.is_ready()})")
+        if self.bot.is_ready() and not self.check_loop.is_running():
+            self.check_loop.cancel()
+            self.check_loop.start()
 
     @tasks.loop(seconds=15)
     async def check_loop(self):
@@ -53,11 +61,6 @@ class FlightMaster(commands.Cog):
         await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=now))
         tasks = [self.check_alerts(airline) for airline in self.airlines]
         await asyncio.gather(*tasks)
-
-    @check_loop.before_loop
-    async def before_check_loop(self):
-        print("flightmaster loop waiting for ready...")
-        await self.bot.wait_until_ready()
 
     async def check_alerts(self, airline):
         # Each thread needs its own connection
@@ -123,7 +126,7 @@ class FlightMaster(commands.Cog):
                 for address in [u.phone, u.email]:
                     subject = "Flight Found!"
                     if address != "":
-                        #await self.email(address, subject, body)
+                        await self.email(address, subject, body)
                         pass
                 await channel.send(f"<@{u.id}> {subject}\n{body}")
 
