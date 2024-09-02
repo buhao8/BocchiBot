@@ -19,6 +19,9 @@ class AA(airline.Airline):
     def get_query(self):
         return "select user_id, year, month, origin, dest, cabin, airline from flights where airline = 'AA' group by year, month, origin, dest, cabin"
 
+    def get_delay(self):
+        return 3
+
     async def get_results(self, flight: FlightData):
         print(f'looking for {flight.month}/{flight.day}/{flight.year} from {flight.origin} to {flight.dest} in cabin {flight.cabin} using AMERICAN AIRLINES')
         try:

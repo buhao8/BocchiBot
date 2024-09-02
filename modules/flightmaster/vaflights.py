@@ -17,6 +17,9 @@ class VA(airline.Airline):
     def get_query(self):
         return "select user_id, year, month, day, origin, dest, cabin, airline from flights where airline = 'VA' group by year, month, day, origin, dest, cabin"
 
+    def get_delay(self):
+        return 6
+
     async def get_results(self, flight: FlightData):
         print(f'looking for {flight.month}/{flight.day}/{flight.year} from {flight.origin} to {flight.dest} in cabin {flight.cabin} using VIRGIN AUSTRALIA')
 
@@ -38,7 +41,7 @@ class VA(airline.Airline):
             except Exception as e:
                 raise FlightsError(e, full_response)
 
-        return ret if len(ret) == required_verifies else []
+        return ret[0] if len(ret) == required_verifies else []
 
     async def get_flights(self, year, month, day, origin, dest, cabin):
 

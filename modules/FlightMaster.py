@@ -26,9 +26,10 @@ class FlightMaster(commands.Cog):
         self.flight_channel = config["flight_channel"]
         self.flight_errors = config["flight_errors"]
 
+        self.disables = []
         self.airlines = [aaflights.AA(), vaflights.VA()]
         print(f"flightmaster ctor (is_ready = {self.bot.is_ready()})")
-        if self.bot.is_ready() and not self.check_loop.is_running():
+        if self.bot.is_ready():
             self.check_loop.cancel()
             self.check_loop.start()
 
@@ -51,7 +52,7 @@ class FlightMaster(commands.Cog):
         print("READY flightmaster")
         print("on_ready = " + str(self.bot.is_ready()))
         print(f"flightmaster on_ready (is_ready = {self.bot.is_ready()})")
-        if self.bot.is_ready() and not self.check_loop.is_running():
+        if self.bot.is_ready():
             self.check_loop.cancel()
             self.check_loop.start()
 
@@ -60,77 +61,92 @@ class FlightMaster(commands.Cog):
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=now))
         tasks = [self.check_alerts(airline) for airline in self.airlines]
+
+        # Should never reach here
         await asyncio.gather(*tasks)
 
     async def check_alerts(self, airline):
-        # Each thread needs its own connection
-        db_con = sqlite3.connect("flights.db")
-        db_con.row_factory = sqlite3.Row
-        db_cur = db_con.cursor()
+        while True:
+            await asyncio.sleep(15)
 
-        channel = self.bot.get_channel(int(self.flight_channel))
+            print(f"Status of {airline}: {'Disabled' if str(airline) in self.disables else 'Enabled'}")
 
-        res = db_cur.execute(airline.get_query())
-        data_to_query = res.fetchall()
+            now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=now))
 
-        dates = []
+            # Each thread needs its own connection
+            db_con = sqlite3.connect("flights.db")
+            db_con.row_factory = sqlite3.Row
+            db_cur = db_con.cursor()
 
-        for query in data_to_query:
-            flight = FlightData(query)
-            try:
-                ret = await airline.get_results(flight)
-            except FlightsError as e:
-                err_msg = f"```{flight}\n\n{traceback.format_exc()}```"
-                await self.send_error(pings=False, title="FLIGHTMASTER ERROR!!!", content=err_msg)
-                continue
+            channel = self.bot.get_channel(int(self.flight_channel))
 
-            for solution in ret:
-                dates.append({
-                    'day': int(solution.day),
-                    'month': flight.month,
-                    'year': flight.year,
-                    'origin': flight.origin,
-                    'dest': flight.dest,
-                    'cabin': flight.cabin
-                })
-            await asyncio.sleep(3)
+            res = db_cur.execute(airline.get_query())
+            data_to_query = res.fetchall()
 
-        res = db_cur.execute("select id, name, email, phone from users")
-        users = res.fetchall()
+            dates = []
 
-        for user in users:
-            u = FlightUser(user)
-            res = db_cur.execute(f"""
-                select user_id, year, month, day, origin, dest, cabin
-                    from flights
-                        where user_id={u.id} and airline='{airline}'
-                            order by origin, dest, year, month""")
+            for query in data_to_query:
+                # Break out if we're disabled now, but still flush gotten alerts
+                if str(airline).upper() in self.disables:
+                    print(f"{airline} is disabled")
+                    break
 
-            results = res.fetchall()
+                flight = FlightData(query)
+                try:
+                    ret = await airline.get_results(flight)
+                except FlightsError as e:
+                    err_msg = f"```{flight}\n\n{traceback.format_exc()}```"
+                    await self.send_error(pings=True, title="FLIGHTMASTER ERROR!!!", content=err_msg)
+                    continue
 
-            body = ""
+                for solution in ret:
+                    dates.append({
+                        'day': int(solution.day),
+                        'month': flight.month,
+                        'year': flight.year,
+                        'origin': flight.origin,
+                        'dest': flight.dest,
+                        'cabin': flight.cabin
+                    })
+                await asyncio.sleep(airline.get_delay())
 
-            for result in results:
-                r = FlightData(result)
+            res = db_cur.execute("select id, name, email, phone from users")
+            users = res.fetchall()
 
-                for date in dates:
-                    if (date['day'] == r.day and
-                        date['month'] == r.month and
-                        date['year'] == r.year and
-                        date['origin'] == r.origin and
-                        date['dest'] == r.dest and
-                        date['cabin'] == r.cabin):
-                        body += f"Flight found for {r.origin}->{r.dest} on {r.month:0>2}-{date['day']:0>2}-{r.year} in {r.cabin} for {airline}\n"
+            for user in users:
+                u = FlightUser(user)
+                res = db_cur.execute(f"""
+                    select user_id, year, month, day, origin, dest, cabin
+                        from flights
+                            where user_id={u.id} and airline='{airline}'
+                                order by origin, dest, year, month""")
 
-            if body != "":
-                for address in [u.phone, u.email]:
-                    subject = "Flight Found!"
-                    if address != "":
-                        await self.email(address, subject, body)
-                        pass
-                await channel.send(f"<@{u.id}> {subject}\n{body}")
+                results = res.fetchall()
 
-        db_con.close()
+                body = ""
+
+                for result in results:
+                    r = FlightData(result)
+
+                    for date in dates:
+                        if (date['day'] == r.day and
+                            date['month'] == r.month and
+                            date['year'] == r.year and
+                            date['origin'] == r.origin and
+                            date['dest'] == r.dest and
+                            date['cabin'] == r.cabin):
+                            body += f"Flight found for {r.origin}->{r.dest} on {r.month:0>2}-{date['day']:0>2}-{r.year} in {r.cabin} for {airline}\n"
+
+                if body != "":
+                    for address in [u.phone, u.email]:
+                        subject = "Flight Found!"
+                        if address != "":
+                            #await self.email(address, subject, body)
+                            pass
+                    await channel.send(f"<@{u.id}> {subject}\n{body}")
+
+            db_con.close()
 
     @commands.command(hidden=True)
     async def create_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str, airline: str):
@@ -374,6 +390,17 @@ class FlightMaster(commands.Cog):
             await ctx.reply(f"get rekt, no flights found for {origin}->{dest} on {d.month:0>2}-{d.day:0>2}-{d.year} in {cabin}")
 
     @commands.command()
+    async def toggle_airline(self, ctx, airline: str):
+        if airline.upper() in self.disables:
+            self.disables.remove(airline.upper())
+            await ctx.reply(f"Enabled {airline.upper()}")
+        elif airline.upper() in [str(a) for a in self.airlines]:
+            self.disables.append(airline.upper())
+            await ctx.reply(f"Disabled {airline.upper()}")
+        else:
+            await ctx.reply(f"Airline doesn't exist")
+
+    @commands.command()
     async def prune_errors(self, ctx):
         if ctx.author.id != int(settings.get()["owner"]):
             await ctx.reply("You are not in the sudoers file.  This incident will be reported.")
@@ -396,10 +423,14 @@ class FlightMaster(commands.Cog):
         return result
 
     async def send_error(self, pings=False, title="", content=""):
-        mgmt_pings = [f"<@{member}> " for member in self.flight_mgmt].join('') if pings else ''
+        mgmt_pings = ''.join([f"<@{member}> " for member in self.flight_mgmt]) if pings else ''
         err_pings = mgmt_pings + title + "\n"
 
         channel = self.bot.get_channel(int(self.flight_errors))
+
+        if "Too Many Requests Processing" in content:
+            await channel.send(err_pings + "Too Many Requests Processing")
+            return
 
         if len(err_pings + content) > 2000:
             buf = io.StringIO(content)
