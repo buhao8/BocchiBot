@@ -136,7 +136,13 @@ class FlightMaster(commands.Cog):
                             date['origin'] == r.origin and
                             date['dest'] == r.dest and
                             date['cabin'] == r.cabin):
-                            body += f"Flight found for {r.origin}->{r.dest} on {r.month:0>2}-{date['day']:0>2}-{r.year} in {r.cabin} for {airline}\n"
+
+                            link = airline.get_link_to_flight(r)
+                            body += f"[Flight found for]({link}) {r.origin}->{r.dest} on {r.month:0>2}-{date['day']:0>2}-{r.year} in {r.cabin} for {airline}\n"
+
+                            if len(body) > 1500:
+                                await channel.send(f"<@{u.id}> {subject}\n{body}")
+                                body = ""
 
                 if body != "":
                     for address in [u.phone, u.email]:
@@ -343,14 +349,15 @@ class FlightMaster(commands.Cog):
             days = []
             for solution in ret:
                 days.append(int(solution.day))
-                msg = f"Flights found for {origin}->{dest} on {d.month:0>2}-{d.year} on days {days} in {cabin} for AA"
-            if len(msg) > 2000:
-                buf = io.StringIO(msg)
-                f = discord.File(buf, filename="err_msg.txt")
-                await ctx.reply(file=f)
-            else:
-                await ctx.reply(msg)
-            return
+
+                data["day"] = int(solution.day)
+                flight = FlightData(data)
+                link = aaflights.AA().get_link_to_flight(flight)
+                #await ctx.reply(f"[Flight found]({link}) for {origin}->{dest} on {d.month:0>2}-{solution.day:0>2}-{d.year} in {cabin} for AA")
+
+            msg = f"Flights found for {origin}->{dest} on {d.month:0>2}-{d.year} on days {days} in {cabin} for AA"
+
+            await ctx.reply(msg)
         else:
             await ctx.reply(f"get rekt, no flights found for {origin}->{dest} on {d.month:0>2}-{d.year} in {cabin}")
 
@@ -378,6 +385,8 @@ class FlightMaster(commands.Cog):
         }
         ret = await vaflights.VA().get_results(FlightData(data))
         if ret:
+            #link = vaflights.VA().get_link_to_flight(FlightData(data))
+            #msg = f"[Flight found for]({link}) {origin}->{dest} on {d.month:0>2}-{d.day:0>2}-{d.year} in {cabin} for VA\n"
             msg = f"Flight found for {origin}->{dest} on {d.month:0>2}-{d.day:0>2}-{d.year} in {cabin} for VA\n"
             if len(msg) > 2000:
                 buf = io.StringIO(msg)

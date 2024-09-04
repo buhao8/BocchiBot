@@ -14,13 +14,27 @@ class AA(airline.Airline):
         return "AA"
 
     def is_valid_alert(self, origin: str, dest: str, cabin: str):
-        return cabin in ['ANY', 'Y', 'PY', 'J', 'F']
+        return cabin in self.cabin_map().keys()
+
+    def cabin_map(self):
+        cabins = {
+            'ANY': '',
+            'Y': 'COACH',
+            'PY': 'PREMIUM_COACH',
+            'J': 'BUSINESS,FIRST',
+            'F': 'FIRST'
+        }
+        return cabins
+
 
     def get_query(self):
         return "select user_id, year, month, origin, dest, cabin, airline from flights where airline = 'AA' group by year, month, origin, dest, cabin"
 
     def get_delay(self):
         return 3
+
+    def get_link_to_flight(self, flight: FlightData):
+        return f'https://www.aa.com/booking/search?locale=en_US&pax=1&adult=1&type=OneWay&searchType=Award&cabin={self.cabin_map()[flight.cabin]}&carriers=ALL&travelType=personal&slices=%5B%7B%22orig%22:%22{flight.origin}%22,%22origNearby%22:false,%22dest%22:%22{flight.dest}%22,%22destNearby%22:false,%22date%22:%22{flight.year}-{flight.month:0>2}-{flight.day:0>2}%22%7D%5D'
 
     async def get_results(self, flight: FlightData):
         print(f'looking for {flight.month}/{flight.day}/{flight.year} from {flight.origin} to {flight.dest} in cabin {flight.cabin} using AMERICAN AIRLINES')
@@ -46,14 +60,6 @@ class AA(airline.Airline):
 
 
     async def get_cal(self, year, month, origin, dest, cabin):
-
-        cabins = {
-            'ANY': '',
-            'Y': 'COACH',
-            'PY': 'PREMIUM_COACH',
-            'J': 'BUSINESS,FIRST',
-            'F': 'FIRST'
-        }
 
         r_headers = {
             'Content-Type': 'application/json',
@@ -88,7 +94,7 @@ class AA(airline.Airline):
             'slices': [
                 {
                     'allCarriers': True,
-                    'cabin': cabins[cabin],
+                    'cabin': self.cabin_map()[cabin],
                     'departureDate': f'{year}-{month:0>2}-{calendar.monthrange(year,month)[1]}',
                     'destination': dest,
                     'destinationNearbyAirports': False,
