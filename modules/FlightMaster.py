@@ -323,6 +323,8 @@ class FlightMaster(commands.Cog):
         else:
             await ctx.reply(ret)
 
+        await ctx.reply("See more at https://flights.buhao.jp/")
+
     @commands.command()
     async def get_aa_month(self, ctx, origin: str, dest: str, cabin: str, monthyear: str):
         if not self.check_auth(ctx.author.id):
