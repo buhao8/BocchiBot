@@ -28,6 +28,11 @@ class BotStuff(commands.Cog):
     async def on_message(self, ctx):
         author_id = str(ctx.author.id)
 
+        await insert_message(ctx, self.cur, self.con)
+
+        if "storage" in ctx.channel.category.name.lower():
+            return
+
         if author_id in self.words:
             author_arr = self.words[author_id]
             msg = ctx.content.lower()
@@ -59,8 +64,6 @@ class BotStuff(commands.Cog):
                     with open('words.json', 'w', encoding='utf-8') as f:
                         json.dump(self.words, f, ensure_ascii=False, indent=4)
 
-        await insert_message(ctx, self.cur, self.con)
-
 
     @commands.Cog.listener()
     async def on_message_delete(self, ctx):
@@ -73,16 +76,25 @@ class BotStuff(commands.Cog):
         res = self.cur.execute(f"select * from messages where id={ctx.id}")
         results = res.fetchall()
 
-        if len(results) > 1:
-            await ctx.send(f"More than one message with id {ctx.id}")
-            return
-        elif len(results) < 1:
-            await ctx.send(f"Message does not exist with id {ctx.id}.  Inserting...")
-            await insert_message(ctx, cur, con)
+        if len(results) < 1:
+            await ctx.channel.send(f"Message does not exist with id {ctx.id}.  Inserting...")
+            await insert_message(ctx, self.cur, self.con)
 
         del_time = datetime.now().timestamp()
         self.cur.execute(f"update messages set deleted_time='{del_time}' where id={ctx.id}")
         self.con.commit()
+
+
+    @commands.Cog.listener()
+    async def on_message_edit(self, ctx, after):
+        if ctx.id != after.id:
+            await ctx.channel.send(f"id mismatch: {ctx.id} != {after.id}")
+            return
+
+        res = self.cur.execute(f"select * from messages where id={ctx.id}")
+        results = res.fetchall()
+
+        await insert_message(after, self.cur, self.con)
 
 
     @commands.command()
@@ -102,8 +114,7 @@ class BotStuff(commands.Cog):
         for msg in result:
             ret += f"- {msg[1]}\n\n"
 
-        await ctx.send(embed = discord.Embed(title=title, description=ret))
-
+        await ctx.channel.send(embed = discord.Embed(title=title, description=ret))
 
     @commands.command(hidden=True)
     async def fbackup(self, ctx):
@@ -112,7 +123,7 @@ class BotStuff(commands.Cog):
             return
 
         guild = ctx.guild
-        await ctx.send(str(guild))
+        await ctx.channel.send(str(guild))
 
         for channel in guild.text_channels:
             perms = channel.permissions_for(channel.guild.me)
@@ -130,7 +141,7 @@ class BotStuff(commands.Cog):
                 num_messages += 1
                 await insert_message(message, self.cur, self.con)
 
-            await ctx.send(f"{num_messages}-{channel.id}")
+            await ctx.channel.send(f"{num_messages}-{channel.id}")
 
         await ctx.reply(f"Complete.")
 
@@ -144,17 +155,33 @@ def is_owner(author):
     return author == int(settings.get()["owner"])
 
 async def insert_message(ctx, cur, con):
-    res = cur.execute(f"select * from messages where id={ctx.id}")
-    if not res.fetchone():
-        cur.execute("insert into messages values "
-                    + f"({ctx.id},"
-                    + f"{ctx.author.id},"
-                    + f"{ctx.guild.id},"
-                    + f"{ctx.channel.id},"
-                    + f"'{ctx.created_at.timestamp()}',"
-                    + f"'0',"
-                    + f"'" + ctx.content.replace("'", "''") + "')")
-        con.commit()
+    res = cur.execute(f"select content, revision from messages where id={ctx.id} order by revision desc")
+    results = res.fetchone()
+
+    if results and ctx.content.replace("'", "''") == results[0]:
+        print("No edit performed?")
+        return
+
+    revision = (results[1] + 1) if results else 0
+
+    timestamp = ctx.created_at.timestamp()
+
+    if ctx.edited_at and revision > 0:
+        # This is to use the original sending timestamp if the message doesn't
+        # exist in the database yet (e.g. fbackup or a raw_message event)
+        timestamp = ctx.edited_at.timestamp()
+
+    cur.execute("insert into messages values "
+                + f"({ctx.id},"
+                + f"{ctx.author.id},"
+                + f"{ctx.guild.id},"
+                + f"{ctx.channel.id},"
+                + f"'{timestamp}',"
+                + f"'0',"
+                + f"'" + ctx.content.replace("'", "''") + "',"
+                + f"{revision}"
+                + ")")
+    con.commit()
 
     for a in ctx.attachments:
         got = False
