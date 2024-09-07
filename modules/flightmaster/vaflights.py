@@ -25,7 +25,7 @@ class VA(airline.Airline):
         #return f'https://book.virginaustralia.com/dx/VADX/#/date-selection?journeyType=one-way&activeMonth={flight.month:0>2}-{flight.day:0>2}-{flight.year}&awardBooking=true&searchType=BRANDED&class=First&ADT=1&CHD=0&INF=0&origin={flight.origin}&destination={flight.dest}&direction=0&execution=undefined'
 
     async def get_results(self, flight: FlightData):
-        print(f'looking for {flight.month}/{flight.day}/{flight.year} from {flight.origin} to {flight.dest} in cabin {flight.cabin} using VIRGIN AUSTRALIA')
+        #print(f'looking for {flight.month}/{flight.day}/{flight.year} from {flight.origin} to {flight.dest} in cabin {flight.cabin} using VIRGIN AUSTRALIA')
 
         ret = []
         required_verifies = 2

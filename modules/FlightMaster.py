@@ -69,7 +69,7 @@ class FlightMaster(commands.Cog):
         while True:
             await asyncio.sleep(15)
 
-            print(f"Status of {airline}: {'Disabled' if str(airline) in self.disables else 'Enabled'}")
+            #print(f"Status of {airline}: {'Disabled' if str(airline) in self.disables else 'Enabled'}")
 
             now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=now))

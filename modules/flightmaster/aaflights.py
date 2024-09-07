@@ -37,7 +37,7 @@ class AA(airline.Airline):
         return f'https://www.aa.com/booking/search?locale=en_US&pax=1&adult=1&type=OneWay&searchType=Award&cabin={self.cabin_map()[flight.cabin]}&carriers=ALL&travelType=personal&slices=%5B%7B%22orig%22:%22{flight.origin}%22,%22origNearby%22:false,%22dest%22:%22{flight.dest}%22,%22destNearby%22:false,%22date%22:%22{flight.year}-{flight.month:0>2}-{flight.day:0>2}%22%7D%5D'
 
     async def get_results(self, flight: FlightData):
-        print(f'looking for {flight.month}/{flight.day}/{flight.year} from {flight.origin} to {flight.dest} in cabin {flight.cabin} using AMERICAN AIRLINES')
+        #print(f'looking for {flight.month}/{flight.day}/{flight.year} from {flight.origin} to {flight.dest} in cabin {flight.cabin} using AMERICAN AIRLINES')
         try:
             full_response = await self.get_cal(flight.year, flight.month, flight.origin, flight.dest, flight.cabin)
             resp = json.loads(full_response.text)
