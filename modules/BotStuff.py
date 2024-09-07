@@ -42,7 +42,7 @@ class BotStuff(commands.Cog):
                 emotes = re.findall(emote_escaped, msg)
 
                 # Subtract URL nonsense, stupidity part 2
-                parts = msg.strip().split(" ")
+                parts = msg.strip().split()
                 in_url = []
                 for s in parts:
                     if validators.url(s):
@@ -170,17 +170,17 @@ async def insert_message(ctx, cur, con):
                         got = True
                         break
                     except discord.HTTPException:
-                        await ctx.send("HTTPException while saving blob {a.id}")
+                        await ctx.channel.send("HTTPException while saving blob {a.id}")
                     except discord.Forbidden:
-                        await ctx.send("Forbidden while saving blob {a.id}")
+                        await ctx.channel.send("Forbidden while saving blob {a.id}")
                     except discord.NotFound:
-                        await ctx.send("NotFound while saving blob, was it deleted? {a.id}")
+                        await ctx.channel.send("NotFound while saving blob, was it deleted? {a.id}")
 
                 if got:
                     break
                 tries -= 1
             if tries == 0:
-                await ctx.send("Failed on blob {a.id}")
+                await ctx.channel.send("Failed on blob {a.id}")
                 continue
 
 
