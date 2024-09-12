@@ -145,6 +145,26 @@ class BotStuff(commands.Cog):
 
         await ctx.reply(f"Complete.")
 
+    @commands.command()
+    async def query(self, ctx, *, arg):
+        if not is_owner(ctx.author.id):
+            await ctx.reply("You are not in the sudoers file.  This incident will be reported.")
+            return
+
+        qcon = sqlite3.connect("file:messages.db?mode=ro", uri=True)
+        qcur = self.con.cursor()
+        arg = arg.strip()
+        if arg[0] == arg[-1] and arg[0] == '`':
+            arg = arg[1:-1]
+        res = qcur.execute(arg)
+        ret = res.fetchall()
+        if ret == []:
+            await ctx.reply("No results")
+        else:
+            if len(f'{ret}') > 2000:
+                await ctx.reply("Results too long")
+            else:
+                await ctx.reply(ret)
 
     @commands.command()
     async def reload(self, ctx, module):
@@ -159,7 +179,7 @@ async def insert_message(ctx, cur, con):
     results = res.fetchone()
 
     if results and ctx.content.replace("'", "''") == results[0]:
-        print("No edit performed?")
+        print(f"No edit performed? Possibly embed added/removed?\nresults[0]={results[0]}\nand\nmsg={ctx.content}")
         return
 
     revision = (results[1] + 1) if results else 0
