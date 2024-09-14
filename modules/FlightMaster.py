@@ -84,7 +84,8 @@ class FlightMaster(commands.Cog):
             res = db_cur.execute(airline.get_query())
             data_to_query = res.fetchall()
 
-            dates = []
+            res = db_cur.execute("select id, name, email, phone from users")
+            users = res.fetchall()
 
             for query in data_to_query:
                 # Break out if we're disabled now, but still flush gotten alerts
@@ -98,7 +99,10 @@ class FlightMaster(commands.Cog):
                 except FlightsError as e:
                     err_msg = f"```{flight}\n\n{traceback.format_exc()}```"
                     await self.send_error(pings=True, title="FLIGHTMASTER ERROR!!!", content=err_msg)
+                    await asyncio.sleep(airline.get_delay())
                     continue
+
+                dates = []
 
                 for solution in ret:
                     dates.append({
@@ -109,48 +113,46 @@ class FlightMaster(commands.Cog):
                         'dest': flight.dest,
                         'cabin': flight.cabin
                     })
+
+                for user in users:
+                    u = FlightUser(user)
+                    res = db_cur.execute(f"""
+                        select user_id, year, month, day, origin, dest, cabin
+                            from flights
+                                where user_id={u.id} and airline='{airline}'
+                                    order by origin, dest, year, month""")
+
+                    results = res.fetchall()
+
+                    body = ""
+
+                    for result in results:
+                        r = FlightData(result)
+
+                        for date in dates:
+                            if (date['day'] == r.day and
+                                date['month'] == r.month and
+                                date['year'] == r.year and
+                                date['origin'] == r.origin and
+                                date['dest'] == r.dest and
+                                date['cabin'] == r.cabin):
+
+                                link = airline.get_link_to_flight(r)
+                                body += f"[Flight found for]({link}) {r.origin}->{r.dest} on {r.month:0>2}-{date['day']:0>2}-{r.year} in {r.cabin} for {airline}\n"
+
+                                if len(body) > 1500:
+                                    await channel.send(f"<@{u.id}> {subject}\n{body}")
+                                    body = ""
+
+                    if body != "":
+                        for address in [u.phone, u.email]:
+                            subject = "Flight Found!"
+                            if address != "":
+                                #await self.email(address, subject, body)
+                                pass
+                        await channel.send(f"<@{u.id}> {subject}\n{body}")
+
                 await asyncio.sleep(airline.get_delay())
-
-            res = db_cur.execute("select id, name, email, phone from users")
-            users = res.fetchall()
-
-            for user in users:
-                u = FlightUser(user)
-                res = db_cur.execute(f"""
-                    select user_id, year, month, day, origin, dest, cabin
-                        from flights
-                            where user_id={u.id} and airline='{airline}'
-                                order by origin, dest, year, month""")
-
-                results = res.fetchall()
-
-                body = ""
-
-                for result in results:
-                    r = FlightData(result)
-
-                    for date in dates:
-                        if (date['day'] == r.day and
-                            date['month'] == r.month and
-                            date['year'] == r.year and
-                            date['origin'] == r.origin and
-                            date['dest'] == r.dest and
-                            date['cabin'] == r.cabin):
-
-                            link = airline.get_link_to_flight(r)
-                            body += f"[Flight found for]({link}) {r.origin}->{r.dest} on {r.month:0>2}-{date['day']:0>2}-{r.year} in {r.cabin} for {airline}\n"
-
-                            if len(body) > 1500:
-                                await channel.send(f"<@{u.id}> {subject}\n{body}")
-                                body = ""
-
-                if body != "":
-                    for address in [u.phone, u.email]:
-                        subject = "Flight Found!"
-                        if address != "":
-                            #await self.email(address, subject, body)
-                            pass
-                    await channel.send(f"<@{u.id}> {subject}\n{body}")
 
             db_con.close()
 
