@@ -16,13 +16,14 @@ def load_configs():
     settings.set(tmp)
 
 def load_commands(bot):
-    cogs = ['modules.Testing']
-
     from modules import __all__ as cogs
     print(cogs)
 
     for cog in cogs:
-        asyncio.run(bot.load_extension(f'modules.{cog}'))
+        if cog in settings.get()["disabled_cogs"]:
+            print(f"Skipping cog {cog}")
+        else:
+            asyncio.run(bot.load_extension(f'modules.{cog}'))
 
 if __name__ == '__main__':
     intents = discord.Intents.all()
