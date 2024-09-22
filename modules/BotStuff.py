@@ -8,6 +8,7 @@ import sqlite3
 from datetime import datetime
 import modules.FlightMaster
 import settings
+import modules.ml.gpt
 
 class BotStuff(commands.Cog):
     def __init__(self, bot):
@@ -26,6 +27,10 @@ class BotStuff(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, ctx):
+        if "bocchi-gpt" == ctx.channel.name.lower():
+            await modules.ml.gpt.process(self.bot.user.id, ctx)
+            return
+
         author_id = str(ctx.author.id)
 
         await insert_message(ctx, self.cur, self.con)
