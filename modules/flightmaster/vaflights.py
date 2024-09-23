@@ -45,7 +45,7 @@ class VA(airline.Airline):
             except Exception as e:
                 raise FlightsError(e, full_response)
 
-        return ret[0] if len(ret) == required_verifies else []
+        return ret[:1] if len(ret) == required_verifies else []
 
     async def get_flights(self, year, month, day, origin, dest, cabin):
 
