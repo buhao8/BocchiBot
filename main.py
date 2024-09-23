@@ -30,10 +30,23 @@ if __name__ == '__main__':
 
     load_configs()
 
+    activity_map = {
+        "LISTENING": discord.ActivityType.listening,
+        "WATCHING": discord.ActivityType.watching,
+        "PLAYING": discord.ActivityType.playing,
+    }
+
+    cfg_activity = settings.get()["activity"]
+
+    activity = None
+
+    if len(cfg_activity) == 2:
+        activity = discord.Activity(name=cfg_activity[1], type=activity_map[cfg_activity[0]])
+
     bot = commands.Bot(
             command_prefix=settings.get()["prefix"],
             intents=intents,
-            activity=discord.Activity(name="Kessoku Band", type=discord.ActivityType.listening))
+            activity=activity)
 
     load_commands(bot)
 
