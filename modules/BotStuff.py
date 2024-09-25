@@ -77,7 +77,7 @@ class BotStuff(commands.Cog):
         results = res.fetchall()
 
         if len(results) < 1:
-            await ctx.channel.send(f"Message does not exist with id {ctx.id}.  Inserting...")
+            #await ctx.channel.send(f"Message does not exist with id {ctx.id}.  Inserting...")
             await insert_message(ctx, self.cur, self.con)
 
         del_time = datetime.now().timestamp()
@@ -141,7 +141,7 @@ class BotStuff(commands.Cog):
                 num_messages += 1
                 await insert_message(message, self.cur, self.con)
 
-            await ctx.channel.send(f"{num_messages}-{channel.id}")
+            await ctx.channel.send(f"{channel.name}-{num_messages}")
 
         await ctx.reply(f"Complete.")
 
@@ -178,31 +178,33 @@ async def insert_message(ctx, cur, con):
     res = cur.execute(f"select content, revision from messages where id={ctx.id} order by revision desc")
     results = res.fetchone()
 
-    if results and ctx.content.replace("'", "''") == results[0]:
-        print(f"No edit performed? Possibly embed added/removed?\nresults[0]={results[0]}\nand\nmsg={ctx.content}")
-        return
+    # Insert if doesn't exist in db or the content is different
+    if not results or ctx.content.replace("'", "''") != results[0]:
+        revision = (results[1] + 1) if results else 0
 
-    revision = (results[1] + 1) if results else 0
+        timestamp = ctx.created_at.timestamp()
 
-    timestamp = ctx.created_at.timestamp()
+        if ctx.edited_at and revision > 0:
+            # This is to use the original sending timestamp if the message doesn't
+            # exist in the database yet (e.g. fbackup or a raw_message event)
+            timestamp = ctx.edited_at.timestamp()
 
-    if ctx.edited_at and revision > 0:
-        # This is to use the original sending timestamp if the message doesn't
-        # exist in the database yet (e.g. fbackup or a raw_message event)
-        timestamp = ctx.edited_at.timestamp()
+        cur.execute("insert into messages values "
+                    + f"({ctx.id},"
+                    + f"{ctx.author.id},"
+                    + f"{ctx.guild.id},"
+                    + f"{ctx.channel.id},"
+                    + f"'{timestamp}',"
+                    + f"'0',"
+                    + f"'" + ctx.content.replace("'", "''") + "',"
+                    + f"{revision}"
+                    + ")")
+        con.commit()
+    else:
+        # No edit performed on ctx.content, probably an embed change
+        pass
 
-    cur.execute("insert into messages values "
-                + f"({ctx.id},"
-                + f"{ctx.author.id},"
-                + f"{ctx.guild.id},"
-                + f"{ctx.channel.id},"
-                + f"'{timestamp}',"
-                + f"'0',"
-                + f"'" + ctx.content.replace("'", "''") + "',"
-                + f"{revision}"
-                + ")")
-    con.commit()
-
+    # We still want to look at attachments regardless of if the message already exists
     for a in ctx.attachments:
         got = False
         data = None
