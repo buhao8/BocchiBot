@@ -278,6 +278,48 @@ class FlightMaster(commands.Cog):
         await ctx.reply("Sent delete requests to database")
 
     @commands.command()
+    async def delete_all_alerts(self, ctx, startdate: str, enddate: str):
+
+        res = self.cur.execute(f"select * from users where id={ctx.author.id}")
+        result = res.fetchone()
+
+        if not self.check_auth(ctx.author.id):
+            await ctx.reply("You are not in the list of authorized users.  This incident will be reported.")
+            return
+
+        try:
+            start = dateutil.parser.parse(startdate)
+            end = dateutil.parser.parse(enddate)
+        except:
+            await ctx.reply("Invalid date format(s)")
+            return
+
+        gap = end - start
+        if gap.days > 365:
+            await ctx.reply("Your range is TOO LARGE")
+            return
+        if end < start:
+            await ctx.reply("Invalid range!!")
+            return
+        if end > datetime.datetime.today() + datetime.timedelta(days=365):
+            await ctx.reply("Your range is too large!!")
+            return
+
+        date = start
+        while date <= end:
+            q = f"""
+            delete from flights
+                where user_id={ctx.author.id}
+                and year={date.year}
+                and month={date.month}
+                and day = {date.day}
+            """
+            self.cur.execute(q)
+            self.con.commit()
+            date = date + datetime.timedelta(days = 1)
+        await ctx.reply("Sent delete requests to database")
+
+    @commands.command()
     async def all_alerts(self, ctx):
         if not self.check_auth(ctx.author.id):
             await ctx.reply("You are not in the list of authorized users.  This incident will be reported.")
