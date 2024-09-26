@@ -13,7 +13,7 @@ class AA(airline.Airline):
     def __str__(self):
         return "AA"
 
-    def is_valid_alert(self, origin: str, dest: str, cabin: str):
+    def is_valid_alert(self, cabin: str):
         return cabin in self.cabin_map().keys()
 
     def cabin_map(self):
