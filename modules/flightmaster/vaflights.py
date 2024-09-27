@@ -11,7 +11,7 @@ class VA(airline.Airline):
     def __str__(self):
         return "VA"
 
-    def is_valid_alert(self, origin: str, dest: str, cabin: str):
+    def is_valid_alert(self, cabin: str):
         return cabin in ['F']
 
     def get_query(self):

@@ -164,23 +164,24 @@ class FlightMaster(commands.Cog):
     async def create_alerts(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str, airline: str):
         # check if user exists
 
-        origin = origin.upper()
-        dest = dest.upper()
+        origins = origin.upper().split(",")
+        dests = dest.upper().split(",")
         cabin = cabin.upper()
-        airline = airline.upper()
+        airlines = airline.upper().split(",")
 
         if not self.check_auth(ctx.author.id):
             await ctx.reply("You are not in the list of authorized users.  This incident will be reported.")
             return
 
-        airlines = {str(airline): airline for airline in self.airlines}
+        supported_airlines = {str(airline): airline for airline in self.airlines}
 
-        if airline not in airlines:
-            await ctx.reply("THIS AIRLINE IS NOT CURRENTLY SUPPORTED")
-            return
-        if not airlines[airline].is_valid_alert(origin, dest, cabin):
-            await ctx.reply(f"CABIN {cabin} IS NOT CURRENTLY SUPPORTED FOR {airline}")
-            return
+        for airline in airlines:
+            if airline not in supported_airlines:
+                await ctx.reply("THIS AIRLINE IS NOT CURRENTLY SUPPORTED")
+                return
+            if not supported_airlines[airline].is_valid_alert(cabin):
+                await ctx.reply(f"CABIN {cabin} IS NOT CURRENTLY SUPPORTED FOR {airline}")
+                return
 
         try:
             start = dateutil.parser.parse(startdate)
@@ -199,29 +200,32 @@ class FlightMaster(commands.Cog):
             await ctx.reply("Your range is too large, why you planning so early?")
             return
 
-        date = start
-        while date <= end:
-            q = f"""
-                select * from flights
-                    where user_id={ctx.author.id}
-                    and year={date.year}
-                    and month={date.month}
-                    and day = {date.day}
-                    and cabin='{cabin}'
-                    and origin='{origin}'
-                    and dest='{dest}'
-                    and airline = '{airline}'
-                """
-            res = self.cur.execute(q)
-            result = res.fetchone()
-            if result:
-                await ctx.reply(f"You already have an alert for {origin}->{dest} on {date} in {cabin} for {airline}")
-            else:
-                self.cur.execute("insert into flights values (?,?,?,?,?,?,?,?,?)",
-                                (ctx.author.id, date.year, date.month, date.day, origin, dest, cabin, 0, airline))
-                self.con.commit()
-            date = date + datetime.timedelta(days = 1)
-        await ctx.reply(f"Created alert for {origin}->{dest} from {start.date()} to {end.date()} in {cabin} for {airline}")
+        for origin in origins:
+            for dest in dests:
+                for airline in airlines:
+                    date = start
+                    while date <= end:
+                        q = f"""
+                            select * from flights
+                                where user_id={ctx.author.id}
+                                and year={date.year}
+                                and month={date.month}
+                                and day = {date.day}
+                                and cabin='{cabin}'
+                                and origin='{origin}'
+                                and dest='{dest}'
+                                and airline = '{airline}'
+                            """
+                        res = self.cur.execute(q)
+                        result = res.fetchone()
+                        if result:
+                            await ctx.reply(f"You already have an alert for {origin}->{dest} on {date} in {cabin} for {airline}")
+                        else:
+                            self.cur.execute("insert into flights values (?,?,?,?,?,?,?,?,?)",
+                                            (ctx.author.id, date.year, date.month, date.day, origin, dest, cabin, 0, airline))
+                            self.con.commit()
+                        date = date + datetime.timedelta(days = 1)
+                    await ctx.reply(f"Created alert for {origin}->{dest} from {start.date()} to {end.date()} in {cabin} for {airline}")
 
     @commands.command(hidden=True)
     async def delete_alert(self, ctx, origin: str, dest: str, cabin: str, startdate: str, enddate: str, airline: str):
