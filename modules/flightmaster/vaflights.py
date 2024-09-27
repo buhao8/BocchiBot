@@ -98,8 +98,10 @@ class VA(airline.Airline):
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post('https://book.virginaustralia.com/api/graphql', headers=r_headers, json=r_json, timeout=None)
-        except:
-            return "httpx.AsyncClient().post exception"
+        except httpx.HTTPError as e:
+            return str(e)
+        except Exception as e:
+            return "Unknown error"
 
         #print("elapsed time:", response.elapsed.total_seconds())
         if response.status_code != 200:

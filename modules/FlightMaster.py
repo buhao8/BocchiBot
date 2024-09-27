@@ -492,7 +492,6 @@ class FlightMaster(commands.Cog):
             f = discord.File(buf, filename="err_msg.txt")
             await channel.send(err_pings, file=f)
         else:
-            print(err_pings + content)
             await channel.send(err_pings + content)
 
 async def setup(client):
