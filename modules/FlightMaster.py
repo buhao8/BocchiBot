@@ -125,6 +125,7 @@ class FlightMaster(commands.Cog):
                     results = res.fetchall()
 
                     body = ""
+                    subject = "Flight Found!"
 
                     for result in results:
                         r = FlightData(result)
@@ -146,7 +147,6 @@ class FlightMaster(commands.Cog):
 
                     if body != "":
                         for address in [u.phone, u.email]:
-                            subject = "Flight Found!"
                             if address != "":
                                 #await self.email(address, subject, body)
                                 pass
